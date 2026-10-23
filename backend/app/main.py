@@ -9,18 +9,31 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
+from fastapi import Depends, FastAPI, UploadFile, File, Form, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, FileResponse
 from PIL import Image
+from pydantic import BaseModel
 
 from backend.app.config import (
     settings,
     GALLERY_DIR,
     STATIC_DIR,
     STAGES,
-    DEFAULT_TEMPERATURE_C
+    DEFAULT_TEMPERATURE_C,
+    SESSION_COOKIE_NAME,
+    SESSION_COOKIE_SECURE,
+    SESSION_TTL_SECONDS,
+)
+from backend.app.auth import (
+    authenticate_admin,
+    create_api_key,
+    create_session_token,
+    list_api_keys,
+    require_api_access,
+    require_session,
+    revoke_api_key,
 )
 from backend.app.ml.bioclip_engine import bioclip_engine
 from backend.app.ml.gallery_index import gallery_manager
@@ -31,6 +44,13 @@ from backend.app.schemas.prediction import (
 )
 from backend.app.agronomy.gulupa_cycle import get_gulupa_cycle_estimate
 from backend.app.agronomy.gulupa_mip import get_gulupa_mip_recommendations
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class ApiKeyCreateRequest(BaseModel):
+    name: str
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,6 +78,80 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def disable_ui_cache(request, call_next):
+    """Evita que el navegador conserve HTML/CSS/JS viejos del panel."""
+    response = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.startswith(("/css/", "/js/")):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
+# ---------------------------------------------------------------------------
+# Autenticación del Panel (login sin registro público)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/auth/login")
+async def login(payload: LoginRequest, response: Response):
+    """Inicia sesión con las credenciales del administrador configuradas en el servidor."""
+    if not authenticate_admin(payload.username, payload.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario o contraseña incorrectos."
+        )
+
+    token = create_session_token(payload.username)
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        max_age=SESSION_TTL_SECONDS,
+        httponly=True,
+        samesite="lax",
+        secure=SESSION_COOKIE_SECURE,
+    )
+    return {"authenticated": True, "username": payload.username}
+
+@app.post("/api/auth/logout")
+async def logout(response: Response):
+    """Cierra la sesión del panel."""
+    response.delete_cookie(SESSION_COOKIE_NAME, secure=SESSION_COOKIE_SECURE, samesite="lax")
+    return {"authenticated": False}
+
+@app.get("/api/auth/me")
+async def auth_me(username: str = Depends(require_session)):
+    """Devuelve el usuario autenticado actual."""
+    return {"authenticated": True, "username": username}
+
+# ---------------------------------------------------------------------------
+# Gestión de API Keys (solo usuarios autenticados en el panel)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/keys")
+async def get_api_keys(_username: str = Depends(require_session)):
+    """Lista las claves de API emitidas (sin mostrar la clave completa)."""
+    return {"items": list_api_keys()}
+
+@app.post("/api/keys")
+async def create_new_api_key(
+    payload: ApiKeyCreateRequest,
+    username: str = Depends(require_session)
+):
+    """Genera una nueva API key. La clave completa solo se muestra una vez."""
+    created = create_api_key(payload.name, username)
+    return {
+        "message": "API key creada. Guárdala ahora: no se volverá a mostrar.",
+        "raw_key": created["raw_key"],
+        "key": created["key"],
+    }
+
+@app.delete("/api/keys/{key_id}")
+async def delete_api_key(key_id: str, _username: str = Depends(require_session)):
+    """Revoca una API key existente."""
+    if not revoke_api_key(key_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key no encontrada.")
+    return {"message": "API key revocada correctamente."}
 
 # ---------------------------------------------------------------------------
 # Endpoints de Salud y Estado
@@ -87,12 +181,13 @@ async def health_check():
 async def predict_thrips(
     file: UploadFile = File(..., description="Foto tomada con cámara o subida desde galería"),
     temperature_c: Optional[float] = Form(DEFAULT_TEMPERATURE_C, description="Temperatura ambiental del invernadero (°C), ej. de SIATA u Open-Meteo"),
-    crop: Optional[str] = Form("gulupa", description="Cultivo analizado (default: gulupa)")
+    crop: Optional[str] = Form("gulupa", description="Cultivo analizado (default: gulupa)"),
+    _access: dict = Depends(require_api_access)
 ):
     """
     Recibe una imagen (hoja, flor, fruto o insecto) y temperatura ambiental:
     - Confirma si es un Trips frente a otros insectos u hoja sana.
-    - Determina el estadio biológico (Adulto, Ninfa I, Ninfa II, Pupa, Daño).
+    - Determina el estadio biológico (Huevo, Larva/Ninfa, Pupa, Adulto) o el daño visible.
     - Proporciona estimación de días de ciclo según grados de temperatura.
     - Emite recomendaciones fitosanitarias de Manejo Integrado de Plagas (MIP).
     - Compara con la Galería de Referencia (Few-Shot) para validar con fotos reales del predio.
@@ -127,20 +222,21 @@ async def predict_thrips(
 # ---------------------------------------------------------------------------
 
 @app.get("/api/gallery", response_model=GalleryStatusResponse)
-async def get_gallery_status():
+async def get_gallery_status(_username: str = Depends(require_session)):
     """Obtiene el estado general del banco de fotos de referencia."""
     stats = gallery_manager.get_gallery_stats()
     return stats
 
 @app.get("/api/gallery/items")
-async def list_gallery_items():
+async def list_gallery_items(_username: str = Depends(require_session)):
     """Lista las imágenes indexadas en cada estadio con su ruta relativa."""
     return gallery_manager.list_items()
 
 @app.post("/api/gallery/upload")
 async def upload_gallery_image(
     file: UploadFile = File(..., description="Foto de referencia de trips tomada en el invernadero"),
-    stage: str = Form(..., description="Estadio biológico: adulto, ninfa_1, ninfa_2, pupa, dano_gulupa")
+    stage: str = Form(..., description="Estadio biológico: huevo, larva, pupa, adulto, dano_gulupa"),
+    _username: str = Depends(require_session)
 ):
     """
     Permite subir fotos reales del usuario al servidor para enriquecer el modelo BioCLIP.
@@ -195,7 +291,7 @@ async def upload_gallery_image(
     }
 
 @app.post("/api/gallery/reindex")
-async def reindex_gallery():
+async def reindex_gallery(_username: str = Depends(require_session)):
     """Fuerza la reindexación de todas las imágenes colocadas manualmente en las carpetas locales."""
     if not bioclip_engine.is_loaded:
         bioclip_engine.load_model()
@@ -216,7 +312,10 @@ async def reindex_gallery():
 # ---------------------------------------------------------------------------
 
 @app.get("/api/gulupa-handbook")
-async def get_gulupa_handbook(temperature_c: float = 20.0):
+async def get_gulupa_handbook(
+    temperature_c: float = 20.0,
+    _access: dict = Depends(require_api_access)
+):
     """Devuelve la guía técnica completa de trips en Gulupa según temperatura."""
     return {
         "crop": "Gulupa (Passiflora edulis f. edulis)",

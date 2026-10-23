@@ -9,7 +9,7 @@
 Este módulo es una **API REST independiente** (Python + FastAPI) que recibe una foto tomada desde el celular y determina:
 
 1. **¿Hay trips en la imagen?** — Sí/No con nivel de confianza.
-2. **¿En qué estadio biológico está?** — Adulto, Ninfa I, Ninfa II, Pupa o Daño visible.
+2. **¿En qué fase biológica está?** — Huevo, Larva (Ninfa), Pupa o Adulto (además de Daño visible).
 3. **¿Cuánto falta para que se vuelva adulto?** — Cálculo basado en grados-día y temperatura del invernadero.
 4. **¿Qué hacer?** — Recomendaciones de Manejo Integrado de Plagas (MIP) específicas para Gulupa de exportación.
 
@@ -75,9 +75,10 @@ Macollo/
 ├── data/
 │   └── reference_gallery/             # Fotos reales del usuario por estadio
 │       ├── adulto/
-│       ├── ninfa_1/
-│       ├── ninfa_2/
+│       ├── huevo/
+│       ├── larva/                     # Larva = Ninfa (una sola fase)
 │       ├── pupa/
+│       ├── adulto/
 │       └── dano_gulupa/
 ├── client_example.js                  # Snippet de integración para tu web
 ├── requirements.txt                   # Dependencias Python
@@ -90,6 +91,7 @@ Macollo/
 | Componente | Archivo | Responsabilidad |
 |---|---|---|
 | **API REST** | `main.py` | Endpoints HTTP, CORS, validación de archivos |
+| **Autenticación** | `auth.py` | Login de panel, sesiones firmadas y API keys |
 | **Motor BioCLIP** | `bioclip_engine.py` | Carga del modelo, extracción de embeddings, pipeline de inferencia completo |
 | **Prompts Taxonómicos** | `taxonomy_prompts.py` | Descripciones textuales de trips y organismos confusores para zero-shot |
 | **Galería k-NN** | `gallery_index.py` | Indexación y búsqueda de fotos de referencia del usuario |
@@ -100,6 +102,21 @@ Macollo/
 ---
 
 ## 3. API REST — Endpoints
+
+> El panel web tiene login y **no tiene registro público**. Las fotos y la gestión de claves
+> requieren sesión; `/api/predict` acepta una sesión web válida o una API key en `X-API-Key`.
+
+### 3.0 Autenticación
+
+- `POST /api/auth/login` — credenciales del servidor (`ADMIN_USERNAME`, `ADMIN_PASSWORD`).
+- `POST /api/auth/logout` — cierra la sesión.
+- `GET /api/auth/me` — usuario autenticado.
+- `GET /api/keys` — lista claves (sesión).
+- `POST /api/keys` — crea una clave; el valor completo se muestra una sola vez.
+- `DELETE /api/keys/{id}` — revoca una clave.
+
+Variables de entorno recomendadas en producción: `ADMIN_USERNAME`, `ADMIN_PASSWORD`,
+`AUTH_SECRET_KEY`, `SESSION_COOKIE_SECURE=true`.
 
 ### 3.1 `GET /api/health`
 
@@ -120,6 +137,7 @@ Verifica el estado del servicio.
 ### 3.2 `POST /api/predict` ⭐ Endpoint principal
 
 Recibe una foto y devuelve el diagnóstico fitosanitario completo.
+Requiere el encabezado `X-API-Key: mk_...` (o una sesión web válida).
 
 **Request** (`multipart/form-data`):
 
@@ -135,17 +153,17 @@ Recibe una foto y devuelve el diagnóstico fitosanitario completo.
   "is_thrips": true,
   "thrips_confidence": 0.87,
   "detected_target": "Trips de las Flores (Frankliniella occidentalis / Thrips tabaci)",
-  "detected_stage": "Larva / Ninfa II (Fase de Raspado Voraz)",
+  "detected_stage": "Larva (Ninfa)",
   "stage_confidence": 0.82,
   "is_damage_manifestation": false,
   "cycle_info": {
     "temperature_c": 22.0,
-    "detected_stage_key": "ninfa_2",
-    "detected_stage_name": "Larva / Ninfa II (Fase de Raspado Voraz)",
-    "current_stage_duration_days": "5.5 días a 22.0°C",
+    "detected_stage_key": "larva",
+    "detected_stage_name": "Larva / Ninfa (Fase de Raspado)",
+    "current_stage_duration_days": "8.3 días a 22.0°C",
     "days_to_adult": "5.0 días (pasará a prepupa/pupa y luego a adulto)",
     "urgency_level": "CRÍTICO",
-    "urgency_rationale": "La Ninfa II es el estadio con mayor consumo alimenticio..."
+    "urgency_rationale": "La larva (ninfa) es el estadio con mayor consumo alimenticio..."
   },
   "recommendations": {
     "biological_control": ["..."],
@@ -161,15 +179,15 @@ Recibe una foto y devuelve el diagnóstico fitosanitario completo.
 
 ### 3.3 `GET /api/gallery`
 
-Estado de la galería de referencia (conteo de fotos por estadio).
+Estado de la galería de referencia (conteo de fotos por estadio). Requiere sesión.
 
 ### 3.4 `POST /api/gallery/upload`
 
-Sube una foto de referencia. Campos: `file` (imagen), `stage` (uno de: `adulto`, `ninfa_1`, `ninfa_2`, `pupa`, `dano_gulupa`).
+Sube una foto de referencia. Campos: `file` (imagen), `stage` (uno de: `huevo`, `larva`, `pupa`, `adulto`, `dano_gulupa`). Requiere sesión.
 
 ### 3.5 `POST /api/gallery/reindex`
 
-Fuerza la reindexación de todas las fotos en `data/reference_gallery/`.
+Fuerza la reindexación de todas las fotos en `data/reference_gallery/`. Requiere sesión.
 
 ### 3.6 `GET /api/gulupa-handbook`
 
@@ -243,15 +261,15 @@ La probabilidad acumulada de las 5 clases positivas debe superar el **umbral de 
 
 ### 4.2 Paso 4: Clasificación de Estadio
 
-Si es trips, se clasifica en uno de 5 estadios:
+Si es trips, se clasifica en una de las 4 fases biológicas (más la categoría de daño):
 
 | Estadio | Descripción | Nivel de Urgencia |
 |---|---|---|
-| **Adulto** | Con alas franjeadas, fase reproductora | CRÍTICO |
-| **Ninfa II** | Amarilla/anaranjada, raspado voraz → cacarizado | CRÍTICO |
-| **Ninfa I** | Diminuta (<0.5mm), recién eclosionada | ALTO |
+| **Huevo** | Ovalado y translúcido, insertado en el tejido | ALTO |
+| **Larva (Ninfa)** | Único estadio larval, sin alas; raspado voraz → cacarizado | CRÍTICO |
 | **Pupa** | En reposo, esbozos alares visibles | ALTO |
-| **Daño** | Roña/cacarizado en fruto, lesión irreversible | CRÍTICO |
+| **Adulto** | Con alas franjeadas, fase reproductora | CRÍTICO |
+| **Daño** | Roña/cacarizado en fruto, lesión irreversible (no es una fase) | CRÍTICO |
 
 ### 4.3 Paso 5: Galería de Referencia (Few-Shot)
 
@@ -281,6 +299,7 @@ Tu web Astro (Vercel/VPS)          API BioCLIP (VPS con 8GB+ RAM)
 
 ```env
 PUBLIC_API_URL=https://api.tudominio.com
+PUBLIC_TRIPS_API_KEY=mk_tu_clave_generada_en_el_panel
 ```
 
 2. **Código JavaScript** en tu componente Astro:
@@ -295,6 +314,7 @@ formData.append("crop", "gulupa");
 
 const res = await fetch(`${API}/api/predict`, {
     method: "POST",
+    headers: { "X-API-Key": import.meta.env.PUBLIC_TRIPS_API_KEY },
     body: formData
 });
 const data = await res.json();
@@ -328,6 +348,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const res = await fetch("http://127.0.0.1:8000/api/predict", {
     method: "POST",
+    headers: { "X-API-Key": process.env.TRIPS_API_KEY ?? "" },
     body: form,
   });
 
@@ -352,7 +373,7 @@ export const POST: APIRoute = async ({ request }) => {
 ### 6.2 Instalación
 
 ```bash
-cd /home/victormcl/Documents/Macollo
+cd /home/victormcl/Documents/macollo-trips-api
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -391,7 +412,7 @@ En el celular abrir: `http://192.168.1.50:8000/docs`
 ## 7. Tests
 
 ```bash
-cd /home/victormcl/Documents/Macollo
+cd /home/victormcl/Documents/macollo-trips-api
 source .venv/bin/activate
 python -m unittest discover -s backend/tests -v
 ```
@@ -434,7 +455,7 @@ Archivo: `backend/app/config.py`
 | `CONFIDENCE_THRESHOLD` | `0.60` | Umbral mínimo para confirmar trips |
 | `DEFAULT_TEMPERATURE_C` | `20.0` | Temperatura por defecto si no se envía |
 | `KNN_TOP_K` | `3` | Vecinos más cercanos en galería |
-| `STAGES` | 5 estadios | `adulto`, `ninfa_1`, `ninfa_2`, `pupa`, `dano_gulupa` |
+| `STAGES` | 4 fases + daño | `huevo`, `larva`, `pupa`, `adulto`, `dano_gulupa` |
 
 ---
 

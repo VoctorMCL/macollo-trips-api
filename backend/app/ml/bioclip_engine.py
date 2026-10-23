@@ -96,7 +96,7 @@ class BioCLIPEngine:
             target_embs = self.model.encode_text(target_tokens)
             self.cached_target_text_embs = F.normalize(target_embs, p=2, dim=-1)
 
-        # 2. Stage Prompts (Adulto, Ninfas, Pupa, Daño)
+        # 2. Stage Prompts (Huevo, Larva/Ninfa, Pupa, Adulto, Daño)
         self.stage_keys = list(BIOLOGICAL_STAGE_PROMPTS.keys())
         stage_texts = [BIOLOGICAL_STAGE_PROMPTS[k]["prompt"] for k in self.stage_keys]
         stage_tokens = self.tokenizer(stage_texts).to(self.device)

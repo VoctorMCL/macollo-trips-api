@@ -8,12 +8,12 @@ Sistema de visión artificial y machine learning basado en **BioCLIP 2.5 (`image
 
 1. **Detección y Confirmación de Trips**:
    - Clasificación contrastiva frente a plagas frecuentes en pasifloráceas: Mosca Blanca (*Bemisia tabaci*), Pulgones (*Aphis gossypii*), Arañita Roja (*Tetranychus urticae*), Ácaro Plano (*Brevipalpus*) y hojas/flores sanas.
-2. **Identificación del Estadio Biológico**:
-   - **Adulto**: Insecto alargado, alas plumosas/franjeadas (fase de dispersión y oviposición en botones).
-   - **Larva / Ninfa II**: Fase voraz de raspado (responsable directa de la "roña" o "cacarizado" en frutos tiernos).
-   - **Larva / Ninfa I**: Recién eclosionada (<0.5 mm), traslúcida o blanquecina.
-   - **Pupa / Prepupa**: Estadio no alimentario en reposo.
-   - **Daño en Fruto / Flor**: Roña corchosa en la corteza de frutos verdes.
+2. **Identificación del Estadio Biológico** (4 fases reales del ciclo):
+   - **Huevo**: Ovalado y translúcido, insertado en hojas, botones florales o frutos tiernos.
+   - **Larva (Ninfa)**: Único estadio larval/ninfal, sin alas, translúcido a amarillo/anaranjado. Es la fase voraz de raspado (responsable de la "roña" o "cacarizado"). **No se divide en Ninfa I y Ninfa II.**
+   - **Pupa (Prepupa)**: Estadio no alimentario en reposo, refugiado en grietas, hojarasca o suelo.
+   - **Adulto**: Insecto alargado con alas plumosas/franjeadas (dispersión y oviposición).
+   - **Daño en Fruto / Flor** (categoría adicional de monitoreo, no es una fase): roña corchosa en frutos verdes.
 3. **Cálculo Térmico del Ciclo Biológico (Grados-Día)**:
    - Recibe la temperatura en tiempo real del invernadero (ej. leída desde tus APIs de **SIATA** o **Open-Meteo**).
    - Modela la duración de cada estadio y proyecta los días restantes para emergencia de adultos.
@@ -25,16 +25,21 @@ Sistema de visión artificial y machine learning basado en **BioCLIP 2.5 (`image
 5. **Galería de Referencia (Few-Shot k-NN Vector Matching)**:
    - Permite colocar fotos reales de trips en `data/reference_gallery/` o subirlas desde la interfaz web.
    - Extrae vectores de 1024 dimensiones con BioCLIP 2.5 para respaldar la predicción con memoria empírica de tu predio.
+6. **Panel privado y API keys**:
+   - Login sin registro público: las credenciales del panel se definen en el servidor.
+   - Sección "API y accesos" para generar y revocar claves por cliente.
+   - `/api/predict` exige `X-API-Key` o una sesión web válida.
 
 ---
 
 ## 📁 Estructura del Proyecto
 
 ```
-/home/victormcl/Documents/Macollo/
+/home/victormcl/Documents/macollo-trips-api/
 ├── backend/
 │   ├── app/
 │   │   ├── config.py                # Umbrales, rutas y configuración
+│   │   ├── auth.py                  # Login, sesiones firmadas y API keys
 │   │   ├── main.py                  # API FastAPI (CORS, REST, Swagger /docs)
 │   │   ├── ml/
 │   │   │   ├── bioclip_engine.py    # Inferencia BioCLIP 2.5, embeddings y ensamble
@@ -53,15 +58,16 @@ Sistema de visión artificial y machine learning basado en **BioCLIP 2.5 (`image
 │   ├── css/
 │   │   └── style.css                # Estilos modernos de alto contraste
 │   └── js/
-│       ├── app.js                   # Lógica de diagnóstico y conexión con la API
+│       ├── app.js                   # Login, diagnóstico y conexión con la API
+│       ├── api_keys.js              # Creación y revocación de API keys
 │       ├── camera.js                # Control de cámara trasera y zoom macro
 │       └── gallery.js               # Subida visual y reindexación de fotos
 ├── data/
-│   └── reference_gallery/           # Tus fotos reales organizadas por estadio
-│       ├── adulto/
-│       ├── ninfa_1/
-│       ├── ninfa_2/
+│   └── reference_gallery/           # Tus fotos reales organizadas por fase
+│       ├── huevo/
+│       ├── larva/                   # Larva = Ninfa (una sola fase)
 │       ├── pupa/
+│       ├── adulto/
 │       └── dano_gulupa/
 ├── client_example.js                # Snippet JS listo para integrar en tu web actual
 ├── requirements.txt                 # Dependencias Python
@@ -79,9 +85,42 @@ Sistema de visión artificial y machine learning basado en **BioCLIP 2.5 (`image
 ```
 
 El servidor quedará disponible en:
-- Interfaz Web: `http://localhost:8000`
+- Panel web: `http://localhost:8000`
 - Acceso desde celulares en el invernadero: `http://<IP-LOCAL>:8000`
 - Documentación interactiva Swagger: `http://localhost:8000/docs`
+
+**Credenciales iniciales del panel** (cámbialas en producción con `ADMIN_USERNAME` y `ADMIN_PASSWORD`):
+- Usuario: `admin`
+- Contraseña: `macollo2026`
+
+No existe registro público. Las cuentas se configuran en el servidor.
+
+---
+
+## 🔐 Acceso, sesiones y API keys
+
+1. Entra al panel en `http://localhost:8000` e inicia sesión.
+2. Abre la pestaña **API y accesos**.
+3. Crea una clave por cliente o aplicación. La clave completa se muestra **una sola vez**.
+4. La app externa debe enviar la clave en el encabezado `X-API-Key`.
+5. Puedes revocar cualquier clave desde el mismo panel.
+
+```bash
+curl -X POST http://localhost:8000/api/predict \
+  -H "X-API-Key: mk_tu_clave" \
+  -F "file=@foto.jpg" \
+  -F "temperature_c=22.5" \
+  -F "crop=gulupa"
+```
+
+Variables de entorno recomendadas en producción:
+
+```bash
+export ADMIN_USERNAME="tu_usuario"
+export ADMIN_PASSWORD="una_contraseña_larga_y_segura"
+export AUTH_SECRET_KEY="cadena_aleatoria_larga"
+export SESSION_COOKIE_SECURE="true"   # cuando sirvas el panel por HTTPS
+```
 
 ---
 
@@ -89,7 +128,7 @@ El servidor quedará disponible en:
 
 La API cuenta con **CORS habilitado (`allow_origins=["*"]`)**, por lo que puedes llamarla directamente con `fetch()` desde el código de tu web actual.
 
-Consulta el archivo [`client_example.js`](file:///home/victormcl/Documents/Macollo/client_example.js) para el código fuente completo.
+Consulta el archivo [`client_example.js`](file:///home/victormcl/Documents/macollo-trips-api/client_example.js) para el código fuente completo.
 
 ### Ejemplo de Petición en JavaScript:
 
@@ -102,6 +141,9 @@ formData.append("crop", "gulupa");
 
 const res = await fetch("http://192.168.1.50:8000/api/predict", {
     method: "POST",
+    headers: {
+        "X-API-Key": "mk_tu_clave_generada_en_el_panel"
+    },
     body: formData
 });
 
@@ -116,17 +158,17 @@ console.log(data);
   "is_thrips": true,
   "thrips_confidence": 0.932,
   "detected_target": "Trips de las Flores (Frankliniella occidentalis / Thrips tabaci)",
-  "detected_stage": "Larva / Ninfa II (Fase de Raspado Voraz)",
+  "detected_stage": "Larva (Ninfa)",
   "stage_confidence": 0.887,
   "is_damage_manifestation": false,
   "cycle_info": {
     "temperature_c": 21.5,
-    "detected_stage_key": "ninfa_2",
-    "detected_stage_name": "Larva / Ninfa II (Fase de Raspado Voraz)",
-    "current_stage_duration_days": "5.5 días a 21.5°C",
+    "detected_stage_key": "larva",
+    "detected_stage_name": "Larva / Ninfa (Fase de Raspado)",
+    "current_stage_duration_days": "9.1 días a 21.5°C",
     "days_to_adult": "5.0 días (pasará a prepupa/pupa y luego a adulto)",
     "urgency_level": "CRÍTICO",
-    "urgency_rationale": "La Ninfa II es el estadio con mayor consumo alimenticio..."
+    "urgency_rationale": "La larva (ninfa) es el estadio con mayor consumo alimenticio..."
   },
   "recommendations": {
     "biological_control": [
@@ -156,16 +198,25 @@ console.log(data);
 
 ## 📸 Gestión de tus Fotos de Trips
 
+> La app externa **solo envía la foto** a `POST /api/predict`. El aprendizaje/calibración con tus fotos ocurre **únicamente en esta API**, dentro de `data/reference_gallery/`. No hay que re-entrenar BioCLIP: se indexan embeddings (few-shot) y se comparan por similitud.
+
 Tienes dos maneras sencillas de agregar tus fotos al modelo:
 
 1. **Desde tu explorador de archivos**:
    Copia tus imágenes a las carpetas correspondientes en `data/reference_gallery/`:
-   - `data/reference_gallery/adulto/`
-   - `data/reference_gallery/ninfa_1/`
-   - `data/reference_gallery/ninfa_2/`
+   - `data/reference_gallery/huevo/`
+   - `data/reference_gallery/larva/`  (larva = ninfa; una sola fase)
    - `data/reference_gallery/pupa/`
+   - `data/reference_gallery/adulto/`
    - `data/reference_gallery/dano_gulupa/`
    Luego haz clic en el botón **"Reindexar Fotos Locales"** en la Web App o llama a `POST /api/gallery/reindex`.
 
 2. **Desde la Web App**:
-   Abre la pestaña **"🖼️ Galería de Referencia"**, selecciona el estadio biológico en el menú desplegable y arrastra la foto al recuadro. BioCLIP calculará su vector inmediatamente y lo guardará en el servidor.
+   Abre la pestaña **"🖼️ Galería de Referencia"**, selecciona la fase biológica en el menú desplegable y arrastra la foto al recuadro. BioCLIP calculará su vector inmediatamente y lo guardará en el servidor.
+
+3. **Desde la API**:
+   ```bash
+   curl -X POST http://localhost:8000/api/gallery/upload \
+     -F "file=@/ruta/a/tu_foto.jpg" \
+     -F "stage=larva"
+   ```

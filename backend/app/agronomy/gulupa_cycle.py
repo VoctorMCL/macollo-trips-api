@@ -12,9 +12,8 @@ T_BASE = 10.5  # °C
 # Requerimientos térmicos aproximados en Grados-Día (GDD - Grados Día Acumulados)
 THERMAL_REQUIREMENTS_GDD = {
     "huevo": 60.0,
-    "ninfa_1": 35.0,
-    "ninfa_2": 60.0,
-    "prepupa_pupa": 55.0,
+    "larva": 95.0,   # Larva/Ninfa: único estadio larval (no se divide en I y II)
+    "pupa": 55.0,
 }
 # Total ciclo huevo a emergencia de adulto: ~210 GDD
 
@@ -34,9 +33,8 @@ def get_gulupa_cycle_estimate(stage_key: str, temperature_c: float = 20.0) -> Di
     
     # Calcular duración de cada fase para la temperatura dada
     days_egg = calculate_stage_duration_days(THERMAL_REQUIREMENTS_GDD["huevo"], temp)
-    days_n1 = calculate_stage_duration_days(THERMAL_REQUIREMENTS_GDD["ninfa_1"], temp)
-    days_n2 = calculate_stage_duration_days(THERMAL_REQUIREMENTS_GDD["ninfa_2"], temp)
-    days_pupa = calculate_stage_duration_days(THERMAL_REQUIREMENTS_GDD["prepupa_pupa"], temp)
+    days_larva = calculate_stage_duration_days(THERMAL_REQUIREMENTS_GDD["larva"], temp)
+    days_pupa = calculate_stage_duration_days(THERMAL_REQUIREMENTS_GDD["pupa"], temp)
     
     stage_info = {
         "temperature_c": round(temp, 1),
@@ -60,30 +58,30 @@ def get_gulupa_cycle_estimate(stage_key: str, temperature_c: float = 20.0) -> Di
                 "Requiere intervención inmediata con trampas azules y control etológico/químico selectivo."
             )
         })
-    elif stage_key == "ninfa_2":
-        days_rem = round(days_pupa, 1)
+    elif stage_key == "huevo":
+        days_rem = round(days_larva + days_pupa, 1)
         stage_info.update({
-            "detected_stage_name": "Larva / Ninfa II (Fase de Raspado Voraz)",
-            "current_stage_duration_days": f"{round(days_n2, 1)} días a {temp}°C",
-            "days_to_adult": f"{days_rem} días (pasará a prepupa/pupa y luego a adulto)",
-            "urgency_level": "CRÍTICO",
-            "urgency_rationale": (
-                "La Ninfa II es el estadio con mayor consumo alimenticio. Si está presente en frutos recién "
-                "cuajados (< 3 cm de diámetro), raspa la epidermis generando el 'cacarizado' o 'roña', "
-                "provocando el rechazo total del fruto para exportación a Europa. Aplicar control foliar biológico o biorracional."
-            )
-        })
-    elif stage_key == "ninfa_1":
-        days_rem = round(days_n2 + days_pupa, 1)
-        stage_info.update({
-            "detected_stage_name": "Larva / Ninfa I (Fase Inicial)",
-            "current_stage_duration_days": f"{round(days_n1, 1)} días a {temp}°C",
-            "days_to_adult": f"{days_rem} días para alcanzar fase adulta",
+            "detected_stage_name": "Huevo (Fase de Incubación)",
+            "current_stage_duration_days": f"{round(days_egg, 1)} días a {temp}°C",
+            "days_to_adult": f"{days_rem} días para alcanzar fase adulta tras la eclosión",
             "urgency_level": "ALTO",
             "urgency_rationale": (
-                "Eclosión reciente confirmada en el cultivo. Es la ventana de mayor susceptibilidad para "
-                "ácaros depredadores (Amblyseius swirskii / Neoseiulus cucumeris) y productos biorracionales "
-                "inhibidores de ecdisis (Azadiractina / Jabón potásico)."
+                "Huevos insertados en los tejidos de botones florales y hojas tiernas. Aún no hay daño directo, "
+                "pero la eclosión de larvas es inminente. Es el momento óptimo para reforzar el monitoreo de botones "
+                "y la liberación preventiva de ácaros depredadores (Amblyseius swirskii) antes de que aparezcan las larvas."
+            )
+        })
+    elif stage_key == "larva":
+        days_rem = round(days_pupa, 1)
+        stage_info.update({
+            "detected_stage_name": "Larva / Ninfa (Fase de Raspado)",
+            "current_stage_duration_days": f"{round(days_larva, 1)} días a {temp}°C",
+            "days_to_adult": f"{days_rem} días (pasará a pupa y luego a adulto)",
+            "urgency_level": "CRÍTICO",
+            "urgency_rationale": (
+                "La larva (ninfa) es el estadio con mayor consumo alimenticio. Si está presente en frutos recién "
+                "cuajados (< 3 cm de diámetro), raspa la epidermis generando el 'cacarizado' o 'roña', "
+                "provocando el rechazo total del fruto para exportación a Europa. Aplicar control foliar biológico o biorracional."
             )
         })
     elif stage_key == "pupa":
@@ -113,7 +111,7 @@ def get_gulupa_cycle_estimate(stage_key: str, temperature_c: float = 20.0) -> Di
     else:
         stage_info.update({
             "detected_stage_name": "Monitoreo General de Trips",
-            "current_stage_duration_days": f"Ciclo completo huevo-adulto: ~{round(days_egg + days_n1 + days_n2 + days_pupa, 1)} días a {temp}°C",
+            "current_stage_duration_days": f"Ciclo completo huevo-adulto: ~{round(days_egg + days_larva + days_pupa, 1)} días a {temp}°C",
             "days_to_adult": "Monitoreo preventivo",
             "urgency_level": "MODERADO",
             "urgency_rationale": "Mantener monitoreo continuo con trampas azules y revisar 20 botones florales por semana."

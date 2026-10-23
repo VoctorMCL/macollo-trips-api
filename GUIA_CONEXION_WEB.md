@@ -11,7 +11,7 @@ Esta guía cubre dos cosas en el mismo lugar:
 Ruta del proyecto en este equipo:
 
 ```text
-/home/victormcl/Documents/Macollo
+/home/victormcl/Documents/macollo-trips-api
 ```
 
 ---
@@ -46,7 +46,7 @@ Hay dos formas de exponer la API:
 ## 1.1. Abrir la terminal en el proyecto
 
 ```bash
-cd /home/victormcl/Documents/Macollo
+cd /home/victormcl/Documents/macollo-trips-api
 ```
 
 ## 1.2. Activar el entorno virtual
@@ -123,15 +123,38 @@ Lo importante es `"model_loaded": true`. Si está en `false`, espera un poco: el
 
 También puedes abrir en el navegador:
 
+- Panel web con login: <http://localhost:8000>
 - Documentación interactiva (Swagger): <http://localhost:8000/docs>
 - Estado: <http://localhost:8000/api/health>
 
-## 1.5. Probar una predicción con una foto real (recomendado)
+Credenciales iniciales del panel: usuario `admin` y contraseña `macollo2026`.
+Cámbialas en producción con las variables de entorno `ADMIN_USERNAME` y `ADMIN_PASSWORD`.
+No hay registro público.
 
-Ten a mano una foto de una hoja, flor o fruto. Desde la terminal:
+## 1.5. Crear una API key y probar una predicción
+
+La API de predicción ya no es pública. Primero inicia sesión en el panel
+(`http://localhost:8000`) y crea una clave en **API y accesos**.
+
+También puedes hacerlo por terminal, guardando la cookie de sesión:
+
+```bash
+# 1) Login del panel (guarda la cookie en cookies.txt)
+curl -c cookies.txt -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"macollo2026"}'
+
+# 2) Crear una API key (la respuesta trae raw_key)
+curl -b cookies.txt -X POST http://localhost:8000/api/keys \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Mi aplicacion"}'
+```
+
+Copia el valor de `raw_key` y úsalo en la predicción:
 
 ```bash
 curl -X POST http://localhost:8000/api/predict \
+  -H "X-API-Key: mk_tu_clave" \
   -F "file=@/ruta/a/tu/foto.jpg" \
   -F "temperature_c=22.5" \
   -F "crop=gulupa"
@@ -192,46 +215,47 @@ Si responde `200`, la API está funcionando de punta a punta.
 ## 1.7. Agregar tus fotos reales (mejora la detección)
 
 La API compara la foto nueva contra tus fotos de referencia (búsqueda de similitud).
-Al principio la galería está vacía.
+Al principio la galería está vacía. La app externa solo envía la foto: el "entrenamiento"
+(few-shot) se hace aquí, indexando las fotos de `data/reference_gallery/`.
 
 **Opción A — desde el sistema de archivos:**
 
 ```bash
 cp /ruta/mi_foto_adulto.jpg data/reference_gallery/adulto/
-cp /ruta/mi_foto_ninfa.jpg  data/reference_gallery/ninfa_2/
+cp /ruta/mi_foto_larva.jpg  data/reference_gallery/larva/
 ```
 
 Carpetas válidas:
 
 ```text
-data/reference_gallery/adulto/
-data/reference_gallery/ninfa_1/
-data/reference_gallery/ninfa_2/
+data/reference_gallery/huevo/
+data/reference_gallery/larva/      # Larva = Ninfa (una sola fase)
 data/reference_gallery/pupa/
+data/reference_gallery/adulto/
 data/reference_gallery/dano_gulupa/
 ```
 
 Luego reindexa:
 
 ```bash
-curl -X POST http://localhost:8000/api/gallery/reindex
+curl -b cookies.txt -X POST http://localhost:8000/api/gallery/reindex
 ```
 
 **Opción B — subir por la API:**
 
 ```bash
-curl -X POST http://localhost:8000/api/gallery/upload \
+curl -b cookies.txt -X POST http://localhost:8000/api/gallery/upload \
   -F "file=@/ruta/a/tu/foto.jpg" \
-  -F "stage=ninfa_2"
+  -F "stage=larva"
 ```
 
-`stage` debe ser uno de: `adulto`, `ninfa_1`, `ninfa_2`, `pupa`, `dano_gulupa`.
+`stage` debe ser uno de: `huevo`, `larva`, `pupa`, `adulto`, `dano_gulupa`.
 
 Ver el estado de la galería:
 
 ```bash
-curl http://localhost:8000/api/gallery
-curl http://localhost:8000/api/gallery/items
+curl -b cookies.txt http://localhost:8000/api/gallery
+curl -b cookies.txt http://localhost:8000/api/gallery/items
 ```
 
 ## 1.8. Probar desde el celular en la misma red Wi-Fi
@@ -267,7 +291,7 @@ El servidor escucha en `0.0.0.0`, así que es accesible desde la red local.
 Con el servidor detenido o en otra terminal:
 
 ```bash
-cd /home/victormcl/Documents/Macollo
+cd /home/victormcl/Documents/macollo-trips-api
 source .venv/bin/activate
 python -m unittest discover -s backend/tests -v
 ```
@@ -303,7 +327,7 @@ pkill -f "uvicorn backend.app.main"
 
 En producción, si tu web Astro está en **HTTPS**, la API **también debe ser HTTPS**. Si no, el navegador bloquea la petición por `mixed content`.
 
-## 2.2. Crear la variable de entorno en Astro
+## 2.2. Crear las variables de entorno en Astro
 
 En la raíz de tu proyecto Astro crea o edita `.env`:
 
@@ -322,6 +346,7 @@ En producción, en el servidor o en el panel de tu hosting (Vercel, Netlify, etc
 
 ```env
 PUBLIC_API_URL=https://api.tudominio.com
+PUBLIC_TRIPS_API_KEY=mk_tu_clave_generada_en_el_panel
 ```
 
 Recuerda que Astro inyecta las variables `PUBLIC_*` **en tiempo de build**. Debes volver a construir y desplegar después de cambiarla.
@@ -378,6 +403,9 @@ Crea un archivo, por ejemplo `src/components/DiagnosticoTrips.astro`:
     try {
       const res = await fetch(`${API}/api/predict`, {
         method: "POST",
+        headers: {
+          "X-API-Key": PUBLIC_TRIPS_API_KEY
+        },
         body: form,
         // No agregues "Content-Type": el navegador pone el boundary solo.
       });
@@ -431,7 +459,7 @@ Si ya tienes tu layout y tu diseño, solo importa y usa `<DiagnosticoTrips />` d
 1. Terminal 1 — API:
 
    ```bash
-   cd /home/victormcl/Documents/Macollo
+   cd /home/victormcl/Documents/macollo-trips-api
    source .venv/bin/activate
    python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
    ```
@@ -514,7 +542,7 @@ Si tu Astro está en Netlify/Vercel pero la API en un VPS, igual funciona: la we
 
 ```bash
 rsync -av --exclude '.venv' --exclude '__pycache__' \
-  /home/victormcl/Documents/Macollo/ usuario@servidor:/opt/macollo/
+  /home/victormcl/Documents/macollo-trips-api/ usuario@servidor:/opt/macollo/
 ```
 
 Esto incluye tus fotos de `data/reference_gallery/` si ya las tienes.
@@ -725,6 +753,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const res = await fetch("http://127.0.0.1:8000/api/predict", {
     method: "POST",
+    headers: { "X-API-Key": process.env.TRIPS_API_KEY ?? "" },
     body: form,
   });
 
@@ -802,13 +831,19 @@ journalctl -u macollo-api -n 100 --no-pager
 
 | Método | Ruta | Qué hace |
 |---|---|---|
-| `GET` | `/api/health` | Estado del servicio y del modelo |
-| `POST` | `/api/predict` | Analiza una foto (multipart: `file`, `temperature_c`, `crop`) |
-| `GET` | `/api/gallery` | Estado y conteo de la galería |
-| `GET` | `/api/gallery/items` | Lista las fotos indexadas |
-| `POST` | `/api/gallery/upload` | Sube una foto de referencia (`file`, `stage`) |
-| `POST` | `/api/gallery/reindex` | Reindexa todas las fotos locales |
-| `GET` | `/api/gulupa-handbook` | Guía agronómica de ejemplo según temperatura |
+| `POST` | `/api/auth/login` | Inicia sesión del panel (sin registro público) |
+| `POST` | `/api/auth/logout` | Cierra la sesión |
+| `GET` | `/api/auth/me` | Devuelve el usuario autenticado |
+| `GET` | `/api/health` | Estado del servicio y del modelo (público) |
+| `POST` | `/api/predict` | Analiza una foto. Requiere `X-API-Key` o sesión |
+| `GET` | `/api/keys` | Lista API keys (requiere sesión) |
+| `POST` | `/api/keys` | Crea una API key (requiere sesión) |
+| `DELETE` | `/api/keys/{id}` | Revoca una API key (requiere sesión) |
+| `GET` | `/api/gallery` | Estado y conteo de la galería (requiere sesión) |
+| `GET` | `/api/gallery/items` | Lista las fotos indexadas (requiere sesión) |
+| `POST` | `/api/gallery/upload` | Sube una foto de referencia (requiere sesión) |
+| `POST` | `/api/gallery/reindex` | Reindexa todas las fotos locales (requiere sesión) |
+| `GET` | `/api/gulupa-handbook` | Guía agronómica (requiere `X-API-Key` o sesión) |
 | `GET` | `/docs` | Swagger interactivo |
 
 Campos principales de la respuesta de `/api/predict`:

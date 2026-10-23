@@ -72,6 +72,33 @@ TAXONOMIC_TARGET_PROMPTS = {
 
 # 2. Prompts de clasificación de estadios biológicos para BioCLIP 2.5
 BIOLOGICAL_STAGE_PROMPTS: Dict[str, Dict[str, str]] = {
+    "huevo": {
+        "name": "Huevo",
+        "description": "Huevo ovalado, translúcido o blanquecino, insertado en el tejido vegetal",
+        "prompt": (
+            "A high-magnification macro photo of a thrips egg, oval translucent whitish egg "
+            "inserted inside plant tissue, leaf epidermis, flower bud or young fruit surface "
+            "of passionfruit (Passiflora edulis), tiny smooth egg without legs or wings."
+        )
+    },
+    "larva": {
+        "name": "Larva (Ninfa)",
+        "description": "Estadio larval o ninfal, sin alas, translúcido a amarillo/anaranjado, activo",
+        "prompt": (
+            "A close-up macro photo of a thrips larva, also called nymph, wingless elongated "
+            "soft body of translucent white, pale yellow or light orange color, tiny legs, "
+            "actively walking and rasping plant tissue or young green fruit surface."
+        )
+    },
+    "pupa": {
+        "name": "Pupa (Prepupa)",
+        "description": "Estadio en reposo (pseudopupa), inmóvil con esbozos alares visibles",
+        "prompt": (
+            "A close-up photo of a thrips prepupa or pupa, inactive non-feeding stage, "
+            "pale body with short wing buds or pads visible along thorax and abdomen, "
+            "resting in a crevice, leaf litter or soil."
+        )
+    },
     "adulto": {
         "name": "Adulto",
         "description": "Adulto móvil con alas franjeadas y cuerpo alargado pardo o amarillento",
@@ -79,31 +106,6 @@ BIOLOGICAL_STAGE_PROMPTS: Dict[str, Dict[str, str]] = {
             "A macroscopic photo of an adult thrips insect (Frankliniella occidentalis or Thrips tabaci), "
             "elongated slender dark amber or brown body with long narrow fringed feathered wings "
             "and visible segmented antennae resting on plant leaf or flower petal."
-        )
-    },
-    "ninfa_2": {
-        "name": "Larva / Ninfa II (Segundo Estadio)",
-        "description": "Ninfa desarrollada color amarillo/anaranjado, ápice cónico, raspador activo",
-        "prompt": (
-            "A close-up photo of a second instar thrips larva (nymph stage II), "
-            "elongated wingless soft body of bright yellow, cream or light orange color, "
-            "actively walking and rasping plant tissue or young green fruit surface."
-        )
-    },
-    "ninfa_1": {
-        "name": "Larva / Ninfa I (Primer Estadio)",
-        "description": "Ninfa diminuta recién nacida (<0.5 mm), translúcida o blanquecina",
-        "prompt": (
-            "A microscopic or high-magnification macro photo of a first instar thrips larva (nymph stage I), "
-            "diminutive translucent whitish or pale yellowish tiny soft body, newly emerged on leaf surface."
-        )
-    },
-    "pupa": {
-        "name": "Prepupa / Pupa",
-        "description": "Estadio en reposo (pseudopupa), inmóvil con esbozos alares visibles",
-        "prompt": (
-            "A close-up photo of a thrips prepupa or pupa, inactive non-feeding stage, "
-            "pale body with short wing buds or pads visible along thorax and abdomen, resting in crevice or soil."
         )
     },
     "dano_gulupa": {

@@ -11,10 +11,16 @@ def get_gulupa_mip_recommendations(stage_key: str, is_damage_only: bool = False)
     
     # 1. Control Biológico
     bio_control: List[str] = [
-        "Liberación de ácaros depredadores benéficos: Amblyseius swirskii o Neoseiulus cucumeris (dosis preventiva: 1-2 ind/m²; dosis curativa: 5-10 ind/m² en focos). Consumen vorazmente ninfas I y II.",
+        "Liberación de ácaros depredadores benéficos: Amblyseius swirskii o Neoseiulus cucumeris (dosis preventiva: 1-2 ind/m²; dosis curativa: 5-10 ind/m² en focos). Consumen vorazmente las larvas (ninfas) y los huevos de trips.",
         "Introducción de chinches piratas Orius insidiosus u Orius laevigatus (0.5 a 1 ind/m² en floración). Son los depredadores naturales más efectivos de trips adultos y ninfas dentro de las flores de Gulupa.",
         "Aplicación de hongo entomopatógeno Beauveria bassiana (cepa comercial a dosis de 1.5 - 2.0 g/L o ml/L) o Lecanicillium lecanii al atardecer (>60% HR, evitando degradación por radiación UV solar)."
     ]
+    if stage_key == "huevo":
+        bio_control.append(
+            "Reforzar la liberación preventiva de Amblyseius swirskii y Orius spp. sobre botones florales: "
+            "los huevos de trips están insertados en el tejido y la eclosión larval ocurre en pocos días, "
+            "por lo que el control debe instalarse antes de que aparezca el daño."
+        )
     if stage_key == "pupa":
         bio_control.append(
             "Aplicación al suelo/sustrato en el plateo de la planta de nematodos entomopatógenos Steinernema feltiae "

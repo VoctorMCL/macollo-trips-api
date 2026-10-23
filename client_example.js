@@ -7,6 +7,7 @@
 
 // 1. Configura la URL donde corre tu servidor de la API (en tu servidor local o en la nube)
 const TRIPS_API_BASE_URL = "http://localhost:8000"; // Reemplaza por la IP local ej: "http://192.168.1.50:8000"
+const TRIPS_API_KEY = "mk_tu_clave_generada_en_el_panel"; // Genera la clave en la sección "API y accesos"
 
 /**
  * Envía una foto tomada por la cámara a la API de BioCLIP 2.5
@@ -28,6 +29,10 @@ async function analizarMuestraTripsGulupa(imageFile, temperatureC = null) {
         console.log(`[BioCLIP-Trips] Enviando muestra para análisis a ${TRIPS_API_BASE_URL}/api/predict...`);
         const response = await fetch(`${TRIPS_API_BASE_URL}/api/predict`, {
             method: "POST",
+            headers: {
+                // La API exige autenticación. La clave se genera en el panel web.
+                "X-API-Key": TRIPS_API_KEY
+            },
             body: formData,
             // NOTA: No definir manualmente 'Content-Type', el navegador asigna automáticamente multipart/form-data con boundary
         });

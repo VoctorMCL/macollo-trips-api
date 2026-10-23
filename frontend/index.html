@@ -3,287 +3,335 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Trips BioCLIP 2.5 — Gulupa AI Invernadero</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+    <title>Macollo Trips — Monitoreo de Gulupa</title>
+    <link rel="stylesheet" href="css/style.css?v=20261023b">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
 
-    <!-- Header -->
-    <header>
-        <div class="logo-group">
-            <div class="logo-badge">🐛</div>
-            <div class="logo-title">
-                <h1>Trips Scouter <span class="badge-tag">BioCLIP 2.5</span></h1>
-                <p>Monitoreo Fitosanitario en Gulupa (<i>Passiflora edulis</i>)</p>
+    <!-- Login (no hay registro público) -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-card">
+            <div class="login-brand">
+                <div class="logo-badge">🌿</div>
+                <div>
+                    <h1>Macollo Trips</h1>
+                    <p>Monitoreo fitosanitario de gulupa</p>
+                </div>
             </div>
+
+            <h2>Iniciar sesión</h2>
+            <p class="login-hint">Acceso restringido al panel de administración. Las cuentas se configuran en el servidor.</p>
+
+            <form id="loginForm" class="login-form">
+                <label for="loginUser">
+                    Usuario
+                    <input type="text" id="loginUser" autocomplete="username" required>
+                </label>
+                <label for="loginPass">
+                    Contraseña
+                    <input type="password" id="loginPass" autocomplete="current-password" required>
+                </label>
+                <button type="submit" class="btn-primary" id="loginBtn">Entrar</button>
+                <div class="login-error" id="loginError" role="alert"></div>
+            </form>
+
+            <p class="login-foot">¿Necesitas acceso? Contacta al administrador del servicio.</p>
         </div>
-        <div class="header-status">
-            <div class="status-pill" id="serverStatusPill">
-                <span class="pulse-dot"></span>
-                <span id="serverStatusText">Conectando...</span>
-            </div>
-        </div>
-    </header>
-
-    <!-- Nav Tabs -->
-    <nav class="nav-tabs">
-        <button class="tab-btn active" data-tab="scoutView" id="tabScoutBtn">
-            📸 Inspección de Campo
-        </button>
-        <button class="tab-btn" data-tab="galleryView" id="tabGalleryBtn">
-            🖼️ Galería de Referencia
-        </button>
-        <button class="tab-btn" data-tab="handbookView" id="tabHandbookBtn">
-            📖 Ficha Técnica MIP
-        </button>
-    </nav>
-
-    <main>
-        <!-- TAB 1: INSPECCIÓN DE CAMPO -->
-        <section id="scoutView" class="tab-content">
-            <!-- Barra de Condiciones de Invernadero (SIATA / Open-Meteo) -->
-            <div class="env-bar">
-                <div class="env-title">
-                    <span>🌡️ Sensor Invernadero</span>
-                    <span class="crop-pill">Cultivo: Gulupa</span>
-                </div>
-                <div class="env-controls">
-                    <div class="temp-input-wrapper" title="Temperatura leída de tu estación o ingresada manualmente">
-                        <label for="tempInput">Temp:</label>
-                        <input type="number" id="tempInput" value="20.0" step="0.5" min="10" max="38">
-                        <span>°C</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Visor de Cámara y Captura -->
-            <div class="camera-card">
-                <div class="viewport-container" id="viewport">
-                    <video id="cameraVideo" autoplay playsinline muted></video>
-                    <img id="imagePreview" style="display:none;" alt="Captura de trips en Gulupa">
-                    
-                    <div class="crosshair-overlay" id="overlay">
-                        <div class="macro-target"></div>
-                        <div class="target-hint">Centra el trips o la flor/fruto verde aquí</div>
-                    </div>
-                </div>
-
-                <div class="camera-controls">
-                    <!-- Control de Zoom Digital para insectos diminutos -->
-                    <div class="zoom-slider-row">
-                        <span>🔍 Zoom Macro:</span>
-                        <input type="range" id="zoomRange" min="1" max="4" step="0.1" value="1">
-                        <span id="zoomValue" style="font-family: var(--font-mono); font-weight:700;">1.0x</span>
-                    </div>
-
-                    <!-- Botones de Acción -->
-                    <div class="buttons-row">
-                        <button class="btn-icon" id="switchCameraBtn" title="Cambiar a cámara trasera macro">
-                            🔄
-                        </button>
-                        
-                        <button class="btn-capture" id="captureBtn" title="Disparar y Analizar">
-                        </button>
-                        
-                        <label for="fileUploadInput" class="btn-icon" title="Subir foto desde galería del teléfono">
-                            📁
-                        </label>
-                        <input type="file" id="fileUploadInput" accept="image/*" style="display:none;">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Contenedor de Diagnóstico en Tiempo Real -->
-            <div class="diagnosis-container" id="diagnosisCard">
-                <!-- Banner de Confirmación -->
-                <div class="alert-banner" id="alertBanner">
-                    <div class="alert-header">
-                        <h2 id="resultTitle">Analizando...</h2>
-                        <p id="resultSubtitle">Consultando modelo de fundación biológica...</p>
-                    </div>
-                    <div class="confidence-chip">
-                        <div class="card-label">Certeza BioCLIP</div>
-                        <div class="confidence-val" id="confidenceVal">--%</div>
-                    </div>
-                </div>
-
-                <!-- Grilla de Estadio y Ciclo -->
-                <div class="results-grid">
-                    <!-- Tarjeta Estadio -->
-                    <div class="info-card">
-                        <div class="card-label">🧬 Estadio Biológico Identificado</div>
-                        <div class="card-val-lg" id="stageName">--</div>
-                        <div class="card-desc" id="stageDesc">--</div>
-                    </div>
-
-                    <!-- Tarjeta Ciclo y Días -->
-                    <div class="info-card">
-                        <div class="card-label">⏱️ Ciclo Térmico & Urgencia</div>
-                        <div class="urgency-badge" id="urgencyBadge">--</div>
-                        <div class="card-val-lg" id="daysToAdult" style="color:var(--primary);">--</div>
-                        <div class="card-desc" id="urgencyRationale">--</div>
-                    </div>
-                </div>
-
-                <!-- Coincidencias con Fotos de Campo (Few-Shot) -->
-                <div class="info-card" id="exemplarBox" style="margin-bottom: 24px; display:none;">
-                    <div class="card-label">🎯 Comparación con Galería de Referencia (k-NN)</div>
-                    <div class="card-desc" id="exemplarDesc">--</div>
-                </div>
-
-                <!-- Recomendaciones Agronómicas Estructuradas (MIP) -->
-                <div class="recs-card" id="recsSection">
-                    <div class="recs-header">
-                        <span style="font-size: 1.4rem;">📋</span>
-                        <h3>Plan de Acción Inmediato (MIP Gulupa)</h3>
-                    </div>
-
-                    <div class="rec-group">
-                        <div class="rec-group-title" style="color:var(--accent-emerald);">
-                            🐞 1. Control Biológico Inundativo
-                        </div>
-                        <ul class="rec-list" id="bioList"></ul>
-                    </div>
-
-                    <div class="rec-group">
-                        <div class="rec-group-title" style="color:var(--primary);">
-                            🟦 2. Control Etológico (Trampas Azules 460nm)
-                        </div>
-                        <ul class="rec-list" id="ethoList"></ul>
-                    </div>
-
-                    <div class="rec-group">
-                        <div class="rec-group-title" style="color:var(--accent-purple);">
-                            🌿 3. Control Cultural & Mallas
-                        </div>
-                        <ul class="rec-list" id="cultList"></ul>
-                    </div>
-
-                    <div class="rec-group">
-                        <div class="rec-group-title" style="color:var(--accent-amber);">
-                            🧪 4. Control Biorracional y Químico (Rotación IRAC)
-                        </div>
-                        <ul class="rec-list" id="chemList"></ul>
-                    </div>
-
-                    <div class="export-warning-box">
-                        <span style="font-size: 1.3rem;">⚠️</span>
-                        <div id="exportAlertText">--</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- TAB 2: GALERÍA DE REFERENCIA (TUS FOTOS) -->
-        <section id="galleryView" class="tab-content gallery-section">
-            <div class="env-bar">
-                <div class="env-title">
-                    <span>📚 Memoria Empírica de Campo (Few-Shot Gallery)</span>
-                </div>
-                <button class="btn-primary" id="reindexBtn" style="padding: 6px 14px; font-size: 0.8rem;">
-                    🔄 Reindexar Fotos Locales
-                </button>
-            </div>
-
-            <!-- Estadísticas de fotos indexadas -->
-            <div class="gallery-stats-grid" id="statsGrid">
-                <div class="stat-pill"><div class="num" id="statTotal">0</div><div class="lbl">Total Fotos</div></div>
-                <div class="stat-pill"><div class="num" id="statAdulto">0</div><div class="lbl">Adultos</div></div>
-                <div class="stat-pill"><div class="num" id="statN1">0</div><div class="lbl">Ninfas I</div></div>
-                <div class="stat-pill"><div class="num" id="statN2">0</div><div class="lbl">Ninfas II</div></div>
-                <div class="stat-pill"><div class="num" id="statPupa">0</div><div class="lbl">Pupas</div></div>
-                <div class="stat-pill"><div class="num" id="statDano">0</div><div class="lbl">Daño / Roña</div></div>
-            </div>
-
-            <!-- Zona de Subida de Fotos -->
-            <div class="info-card">
-                <div class="card-label">📤 Agregar Nueva Foto a la Memoria del Modelo</div>
-                <p class="card-desc" style="margin-bottom: 14px;">
-                    Sube fotos reales de trips o daños tomadas en tus invernaderos de Gulupa. BioCLIP 2.5 extraerá su vector de características y lo utilizará para mejorar el acierto en campo.
-                </p>
-
-                <div class="stage-select-row">
-                    <label for="galleryStageSelect">Estadio Biológico:</label>
-                    <select id="galleryStageSelect">
-                        <option value="adulto">Adulto (con alas franjeadas)</option>
-                        <option value="ninfa_2">Larva / Ninfa II (amarilla/anaranjada activa)</option>
-                        <option value="ninfa_1">Larva / Ninfa I (diminuta recién nacida)</option>
-                        <option value="pupa">Prepupa / Pupa (en reposo)</option>
-                        <option value="dano_gulupa">Daño / Roña / Cacarizado en Fruto</option>
-                    </select>
-                </div>
-
-                <div class="upload-zone" id="galleryDropZone">
-                    <div style="font-size: 2.2rem; margin-bottom: 8px;">📸</div>
-                    <strong>Haz clic o arrastra una foto aquí</strong>
-                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Formatos JPG, PNG o WebP</p>
-                    <input type="file" id="galleryFileInput" accept="image/*" style="display:none;">
-                </div>
-            </div>
-
-            <!-- Listado de fotos indexadas -->
-            <div class="info-card" style="margin-top: 20px;">
-                <div class="card-label">📁 Fotos Almacenadas en Servidor</div>
-                <div id="galleryItemsList" style="font-size: 0.82rem; color: var(--text-secondary); max-height: 250px; overflow-y: auto;">
-                    Cargando listado...
-                </div>
-            </div>
-        </section>
-
-        <!-- TAB 3: FICHA TÉCNICA GULUPA -->
-        <section id="handbookView" class="tab-content" style="display:none;">
-            <div class="recs-card">
-                <div class="recs-header">
-                    <span style="font-size: 1.4rem;">📘</span>
-                    <h3>Manual Fitosanitario: Trips en Gulupa (<i>Passiflora edulis</i>)</h3>
-                </div>
-
-                <div class="rec-group">
-                    <div class="rec-group-title" style="color:var(--primary);">
-                        🔍 Especies Principales en Colombia y Región Andina
-                    </div>
-                    <ul class="rec-list">
-                        <li><b>Frankliniella occidentalis:</b> Trips de las flores. Insecto alargado, coloración de amarillenta a parda oscura. Alas estrechas con flecos largos. Muy polífago y transmisor de tospovirus.</li>
-                        <li><b>Frankliniella panamensis:</b> Presente frecuentemente en inflorescencias de pasifloráceas.</li>
-                        <li><b>Thrips tabaci:</b> Color amarillo pálido a marrón claro, presente en hojas tiernas y botones.</li>
-                    </ul>
-                </div>
-
-                <div class="rec-group">
-                    <div class="rec-group-title" style="color:var(--accent-rose);">
-                        💥 Sintomatología y Daño Económico en Fruto
-                    </div>
-                    <ul class="rec-list">
-                        <li><b>Cacarizado o Roña:</b> El daño más severo ocurre cuando ninfas II y adultos raspan la cáscara del fruto recién cuajado (< 3 cm de diámetro). Al expandirse el fruto, las heridas cicatrizan con tejido suberoso de color pardo o plateado.</li>
-                        <li><b>Aborto Floral:</b> La alimentación en los nectarios y pistilos de flores en antesis provoca caída masiva de botones.</li>
-                        <li><b>Deformación de Brotes:</b> Las hojas tiernas brotan encrespadas con clorosis marginal y punteado plateado con gotas negras de excremento.</li>
-                    </ul>
-                </div>
-
-                <div class="rec-group">
-                    <div class="rec-group-title" style="color:var(--accent-amber);">
-                        🌡️ Dinámica Poblacional Térmica
-                    </div>
-                    <ul class="rec-list">
-                        <li>A 18°C (clima frío moderado de cordillera): El ciclo completo de huevo a adulto toma ~28 a 32 días.</li>
-                        <li>A 24°C - 26°C (invernadero en día despejado): El ciclo se acelera drásticamente a 12 - 14 días, multiplicando la población en cuestión de semanas.</li>
-                        <li>Uso de trampas azules a 460 nm para detección temprana antes de que se observen daños en frutos.</li>
-                    </ul>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Overlay de Carga / Spinner -->
-    <div class="spinner-overlay" id="spinnerOverlay">
-        <div class="spinner"></div>
-        <div class="spinner-text" id="spinnerText">Analizando muestra con BioCLIP 2.5...</div>
     </div>
 
-    <!-- Scripts -->
-    <script src="js/camera.js"></script>
-    <script src="js/gallery.js"></script>
-    <script src="js/app.js"></script>
+    <div class="app-shell" id="appShell" hidden>
+        <header>
+            <div class="logo-group">
+                <div class="logo-badge">🌿</div>
+                <div class="logo-title">
+                    <h1>Macollo Trips <span class="badge-tag">API</span></h1>
+                    <p>Monitoreo fitosanitario en gulupa (<i>Passiflora edulis</i>)</p>
+                </div>
+            </div>
+            <div class="header-status">
+                <div class="status-pill" id="serverStatusPill">
+                    <span class="pulse-dot"></span>
+                    <span id="serverStatusText">Conectando...</span>
+                </div>
+                <span class="user-chip" id="userChip">admin</span>
+                <button class="btn-ghost" id="logoutBtn" type="button">Cerrar sesión</button>
+            </div>
+        </header>
+
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-tab="scoutView" id="tabScoutBtn"> Inspección </button>
+            <button class="tab-btn" data-tab="galleryView" id="tabGalleryBtn"> Galería </button>
+            <button class="tab-btn" data-tab="apiView" id="tabApiBtn"> API y accesos </button>
+            <button class="tab-btn" data-tab="handbookView" id="tabHandbookBtn"> Ficha técnica </button>
+        </nav>
+
+        <main>
+            <!-- TAB 1: INSPECCIÓN -->
+            <section id="scoutView" class="tab-content">
+                <div class="page-heading">
+                    <h2>Inspección de campo</h2>
+                    <p>Toma una foto de la hoja, flor o fruto y la API identificará la fase del trips.</p>
+                </div>
+
+                <div class="env-bar">
+                    <div class="env-title">
+                        <span>Temperatura del invernadero</span>
+                        <span class="crop-pill">Cultivo: Gulupa</span>
+                    </div>
+                    <div class="env-controls">
+                        <div class="temp-input-wrapper" title="Temperatura leída de tu estación o ingresada manualmente">
+                            <label for="tempInput">Temp.</label>
+                            <input type="number" id="tempInput" value="20.0" step="0.5" min="10" max="38">
+                            <span>°C</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="camera-card">
+                    <div class="viewport-container" id="viewport">
+                        <video id="cameraVideo" autoplay playsinline muted></video>
+                        <img id="imagePreview" style="display:none;" alt="Captura de la muestra">
+                        <div class="crosshair-overlay" id="overlay">
+                            <div class="macro-target"></div>
+                            <div class="target-hint">Centra el trips, la flor o el fruto</div>
+                        </div>
+                    </div>
+
+                    <div class="camera-controls">
+                        <div class="zoom-slider-row">
+                            <span>Zoom macro</span>
+                            <input type="range" id="zoomRange" min="1" max="4" step="0.1" value="1">
+                            <span id="zoomValue" class="mono">1.0x</span>
+                        </div>
+
+                        <div class="buttons-row">
+                            <button class="btn-icon" id="switchCameraBtn" title="Cambiar cámara">↻</button>
+                            <button class="btn-capture" id="captureBtn" title="Tomar foto y analizar"></button>
+                            <label for="fileUploadInput" class="btn-icon" title="Subir una foto">+</label>
+                            <input type="file" id="fileUploadInput" accept="image/*" style="display:none;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="diagnosis-container" id="diagnosisCard">
+                    <div class="alert-banner" id="alertBanner">
+                        <div class="alert-header">
+                            <h2 id="resultTitle">Analizando...</h2>
+                            <p id="resultSubtitle">Consultando el modelo biológico...</p>
+                        </div>
+                        <div class="confidence-chip">
+                            <div class="card-label">Certeza</div>
+                            <div class="confidence-val" id="confidenceVal">--%</div>
+                        </div>
+                    </div>
+
+                    <div class="results-grid">
+                        <div class="info-card">
+                            <div class="card-label">Fase identificada</div>
+                            <div class="card-val-lg" id="stageName">--</div>
+                            <div class="card-desc" id="stageDesc">--</div>
+                        </div>
+
+                        <div class="info-card">
+                            <div class="card-label">Ciclo y urgencia</div>
+                            <div class="urgency-badge" id="urgencyBadge">--</div>
+                            <div class="card-val-lg" id="daysToAdult">--</div>
+                            <div class="card-desc" id="urgencyRationale">--</div>
+                        </div>
+                    </div>
+
+                    <div class="info-card" id="exemplarBox" style="margin-bottom: 24px; display:none;">
+                        <div class="card-label">Coincidencias con la galería</div>
+                        <div class="card-desc" id="exemplarDesc">--</div>
+                    </div>
+
+                    <div class="recs-card" id="recsSection">
+                        <div class="recs-header">
+                            <h3>Plan de acción (MIP Gulupa)</h3>
+                        </div>
+
+                        <div class="rec-group">
+                            <div class="rec-group-title">1. Control biológico</div>
+                            <ul class="rec-list" id="bioList"></ul>
+                        </div>
+
+                        <div class="rec-group">
+                            <div class="rec-group-title">2. Control etológico</div>
+                            <ul class="rec-list" id="ethoList"></ul>
+                        </div>
+
+                        <div class="rec-group">
+                            <div class="rec-group-title">3. Control cultural</div>
+                            <ul class="rec-list" id="cultList"></ul>
+                        </div>
+
+                        <div class="rec-group">
+                            <div class="rec-group-title">4. Control biorracional y químico</div>
+                            <ul class="rec-list" id="chemList"></ul>
+                        </div>
+
+                        <div class="export-warning-box">
+                            <div id="exportAlertText">--</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: GALERÍA -->
+            <section id="galleryView" class="tab-content gallery-section">
+                <div class="page-heading">
+                    <h2>Galería de referencia</h2>
+                    <p>Estas fotos se indexan en el servidor para mejorar la comparación de la API.</p>
+                </div>
+
+                <div class="env-bar">
+                    <div class="env-title">
+                        <span>Memoria de campo (few-shot)</span>
+                    </div>
+                    <button class="btn-primary btn-small" id="reindexBtn" type="button">Reindexar fotos</button>
+                </div>
+
+                <div class="gallery-stats-grid" id="statsGrid">
+                    <div class="stat-pill"><div class="num" id="statTotal">0</div><div class="lbl">Total</div></div>
+                    <div class="stat-pill"><div class="num" id="statHuevo">0</div><div class="lbl">Huevos</div></div>
+                    <div class="stat-pill"><div class="num" id="statLarva">0</div><div class="lbl">Larvas / Ninfas</div></div>
+                    <div class="stat-pill"><div class="num" id="statPupa">0</div><div class="lbl">Pupas</div></div>
+                    <div class="stat-pill"><div class="num" id="statAdulto">0</div><div class="lbl">Adultos</div></div>
+                    <div class="stat-pill"><div class="num" id="statDano">0</div><div class="lbl">Daño / Roña</div></div>
+                </div>
+
+                <div class="info-card">
+                    <div class="card-label">Agregar una foto</div>
+                    <p class="card-desc" style="margin-bottom: 14px;">
+                        Sube fotos reales de trips o daños tomadas en el invernadero. El modelo extrae su vector de características y lo usa para comparar nuevas fotos.
+                    </p>
+
+                    <div class="stage-select-row">
+                        <label for="galleryStageSelect">Fase:</label>
+                        <select id="galleryStageSelect">
+                            <option value="huevo">Huevo</option>
+                            <option value="larva" selected>Larva (Ninfa)</option>
+                            <option value="pupa">Pupa</option>
+                            <option value="adulto">Adulto</option>
+                            <option value="dano_gulupa">Daño / Roña</option>
+                        </select>
+                    </div>
+
+                    <div class="upload-zone" id="galleryDropZone">
+                        <strong>Haz clic o arrastra una foto aquí</strong>
+                        <p>Formatos JPG, PNG o WebP</p>
+                        <input type="file" id="galleryFileInput" accept="image/*" style="display:none;">
+                    </div>
+                </div>
+
+                <div class="info-card" style="margin-top: 20px;">
+                    <div class="card-label">Fotos almacenadas</div>
+                    <div id="galleryItemsList" class="items-list">Cargando listado...</div>
+                </div>
+            </section>
+
+            <!-- TAB 3: API Y ACCESOS -->
+            <section id="apiView" class="tab-content">
+                <div class="page-heading">
+                    <h2>API y accesos</h2>
+                    <p>Genera claves para que tus aplicaciones usen la API sin compartir la contraseña del panel.</p>
+                </div>
+
+                <div class="info-card">
+                    <div class="card-label">Nueva API key</div>
+                    <p class="card-desc">Cada cliente o aplicación debe usar su propia clave. Puedes revocarla cuando quieras.</p>
+                    <form id="apiKeyForm" class="inline-form">
+                        <input type="text" id="apiKeyName" placeholder="Ej. App invernadero lote 3" maxlength="80" required>
+                        <button type="submit" class="btn-primary">Crear clave</button>
+                    </form>
+
+                    <div id="newKeyBox" class="new-key-box" hidden>
+                        <strong>Guarda esta clave ahora. No se volverá a mostrar.</strong>
+                        <div class="key-row">
+                            <code id="newKeyValue"></code>
+                            <button type="button" class="btn-ghost" id="copyKeyBtn">Copiar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-card" style="margin-top: 20px;">
+                    <div class="card-label">Claves emitidas</div>
+                    <div id="apiKeysList" class="items-list">Cargando claves...</div>
+                </div>
+
+                <div class="info-card" style="margin-top: 20px;">
+                    <div class="card-label">Cómo consumir la API</div>
+                    <p class="card-desc">Envía la clave en el encabezado <code>X-API-Key</code>:</p>
+                    <pre class="code-block">const formData = new FormData();
+formData.append("file", fotoBlob, "muestra.jpg");
+formData.append("temperature_c", "22.5");
+
+const res = await fetch("http://TU-SERVIDOR:8000/api/predict", {
+  method: "POST",
+  headers: { "X-API-Key": "mk_tu_clave" },
+  body: formData
+});</pre>
+                </div>
+            </section>
+
+            <!-- TAB 4: FICHA TÉCNICA -->
+            <section id="handbookView" class="tab-content" style="display:none;">
+                <div class="page-heading">
+                    <h2>Ficha técnica: trips en gulupa</h2>
+                    <p>Especies, fases del ciclo y daño económico.</p>
+                </div>
+
+                <div class="recs-card">
+                    <div class="rec-group">
+                        <div class="rec-group-title">Especies principales en Colombia y la región andina</div>
+                        <ul class="rec-list">
+                            <li><b>Frankliniella occidentalis:</b> trips de las flores. Insecto alargado, de amarillento a pardo oscuro, alas estrechas con flecos largos. Muy polífago y transmisor de tospovirus.</li>
+                            <li><b>Frankliniella panamensis:</b> presente con frecuencia en inflorescencias de pasifloráceas.</li>
+                            <li><b>Thrips tabaci:</b> color amarillo pálido a marrón claro, presente en hojas tiernas y botones.</li>
+                        </ul>
+                    </div>
+
+                    <div class="rec-group">
+                        <div class="rec-group-title">Fases del ciclo biológico (4 fases)</div>
+                        <ul class="rec-list">
+                            <li><b>Huevo:</b> ovalado y translúcido, insertado en hojas, botones florales o frutos tiernos.</li>
+                            <li><b>Larva (Ninfa):</b> único estadio larval/ninfal, sin alas; translúcido a amarillo o anaranjado. Es la fase que más se alimenta y causa el raspado. No se divide en Ninfa I y Ninfa II.</li>
+                            <li><b>Pupa:</b> estadio de reposo, no se alimenta; suele refugiarse en grietas, hojarasca o suelo.</li>
+                            <li><b>Adulto:</b> con alas franjeadas, móvil, se dispersa y oviposita. Es la fase reproductora.</li>
+                        </ul>
+                    </div>
+
+                    <div class="rec-group">
+                        <div class="rec-group-title">Síntomas y daño económico en fruto</div>
+                        <ul class="rec-list">
+                            <li><b>Cacarizado o roña:</b> ocurre cuando las larvas (ninfas) y los adultos raspan la cáscara del fruto recién cuajado (menos de 3 cm). Al expandirse, las heridas cicatrizan con tejido suberoso pardo o plateado.</li>
+                            <li><b>Aborto floral:</b> la alimentación en nectarios y pistilos durante la antesis provoca caída de botones.</li>
+                            <li><b>Deformación de brotes:</b> hojas tiernas encrespadas con clorosis marginal, punteado plateado y excremento negro.</li>
+                        </ul>
+                    </div>
+
+                    <div class="rec-group">
+                        <div class="rec-group-title">Dinámica poblacional y temperatura</div>
+                        <ul class="rec-list">
+                            <li>A 18 °C el ciclo completo de huevo a adulto tarda aproximadamente 28 a 32 días.</li>
+                            <li>A 24–26 °C el ciclo se acelera a 12–14 días, multiplicando la población en pocas semanas.</li>
+                            <li>Las trampas azules (460 nm) ayudan a detectar la presencia antes de que aparezca daño en frutos.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="spinner-overlay" id="spinnerOverlay">
+        <div class="spinner"></div>
+        <div class="spinner-text" id="spinnerText">Analizando muestra...</div>
+    </div>
+
+    <script src="js/camera.js?v=20261023b"></script>
+    <script src="js/gallery.js?v=20261023b"></script>
+    <script src="js/api_keys.js?v=20261023b"></script>
+    <script src="js/app.js?v=20261023b"></script>
 </body>
 </html>

@@ -11,12 +11,14 @@ __pycache__/
 *.safetensors
 
 # Datos de la galería (fotos del usuario)
-data/reference_gallery/adulto/*
-data/reference_gallery/ninfa_1/*
-data/reference_gallery/ninfa_2/*
+data/reference_gallery/huevo/*
+data/reference_gallery/larva/*
 data/reference_gallery/pupa/*
+data/reference_gallery/adulto/*
 data/reference_gallery/dano_gulupa/*
 data/gallery_embeddings.pt
+data/api_keys.json
+data/.auth_secret
 !data/reference_gallery/*/.gitkeep
 
 # IDE

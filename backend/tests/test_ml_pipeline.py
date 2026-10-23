@@ -23,19 +23,25 @@ class TestAgronomyAndTaxonomy(unittest.TestCase):
             self.assertIn(key, TAXONOMIC_TARGET_PROMPTS, f"Clave positiva {key} falta en prompts")
             self.assertIsInstance(TAXONOMIC_TARGET_PROMPTS[key], str)
 
-        expected_stages = ["adulto", "ninfa_1", "ninfa_2", "pupa", "dano_gulupa"]
+        expected_stages = ["huevo", "larva", "pupa", "adulto", "dano_gulupa"]
         for st in expected_stages:
             self.assertIn(st, BIOLOGICAL_STAGE_PROMPTS, f"Estadio {st} falta en BIOLOGICAL_STAGE_PROMPTS")
             self.assertIn("prompt", BIOLOGICAL_STAGE_PROMPTS[st])
             self.assertIn("name", BIOLOGICAL_STAGE_PROMPTS[st])
 
+        # El ciclo biológico tiene 4 fases: huevo, larva (ninfa única), pupa y adulto.
+        # No deben existir dos estadios de ninfa separados.
+        for old_key in ["ninfa_1", "ninfa_2"]:
+            self.assertNotIn(old_key, BIOLOGICAL_STAGE_PROMPTS, f"{old_key} no debe existir: solo hay una fase larva/ninfa")
+        self.assertIn("larva", BIOLOGICAL_STAGE_PROMPTS)
+
     def test_thermal_cycle_calculation(self):
         """Verifica el cálculo de duración de ciclo a diferentes temperaturas."""
         # A 20°C (temperatura moderada)
-        cycle_20 = get_gulupa_cycle_estimate("ninfa_2", temperature_c=20.0)
+        cycle_20 = get_gulupa_cycle_estimate("larva", temperature_c=20.0)
         self.assertEqual(cycle_20["urgency_level"], "CRÍTICO")
         self.assertIn("días", cycle_20["days_to_adult"])
-        self.assertEqual(cycle_20["detected_stage_key"], "ninfa_2")
+        self.assertEqual(cycle_20["detected_stage_key"], "larva")
 
         # A 28°C (temperatura alta de invernadero, desarrollo más rápido)
         cycle_28 = get_gulupa_cycle_estimate("adulto", temperature_c=28.0)
@@ -70,7 +76,7 @@ class TestAgronomyAndTaxonomy(unittest.TestCase):
         stats = gallery_manager.get_gallery_stats()
         self.assertIn("total_images", stats)
         self.assertIn("by_stage", stats)
-        for stage in ["adulto", "ninfa_1", "ninfa_2", "pupa", "dano_gulupa"]:
+        for stage in ["huevo", "larva", "pupa", "adulto", "dano_gulupa"]:
             self.assertIn(stage, stats["by_stage"])
 
 if __name__ == "__main__":

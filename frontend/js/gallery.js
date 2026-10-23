@@ -11,10 +11,10 @@ class GalleryUI {
         this.itemsList = document.getElementById("galleryItemsList");
         
         this.statTotal = document.getElementById("statTotal");
-        this.statAdulto = document.getElementById("statAdulto");
-        this.statN1 = document.getElementById("statN1");
-        this.statN2 = document.getElementById("statN2");
+        this.statHuevo = document.getElementById("statHuevo");
+        this.statLarva = document.getElementById("statLarva");
         this.statPupa = document.getElementById("statPupa");
+        this.statAdulto = document.getElementById("statAdulto");
         this.statDano = document.getElementById("statDano");
 
         this._setupListeners();
@@ -56,14 +56,15 @@ class GalleryUI {
     async refreshStats() {
         try {
             const res = await fetch("/api/gallery");
+            if (handleUnauthorized(res)) return;
             if (!res.ok) return;
             const data = await res.json();
             
             if (this.statTotal) this.statTotal.textContent = data.total_images;
-            if (this.statAdulto) this.statAdulto.textContent = data.by_stage.adulto || 0;
-            if (this.statN1) this.statN1.textContent = data.by_stage.ninfa_1 || 0;
-            if (this.statN2) this.statN2.textContent = data.by_stage.ninfa_2 || 0;
+            if (this.statHuevo) this.statHuevo.textContent = data.by_stage.huevo || 0;
+            if (this.statLarva) this.statLarva.textContent = data.by_stage.larva || 0;
             if (this.statPupa) this.statPupa.textContent = data.by_stage.pupa || 0;
+            if (this.statAdulto) this.statAdulto.textContent = data.by_stage.adulto || 0;
             if (this.statDano) this.statDano.textContent = data.by_stage.dano_gulupa || 0;
 
             this.refreshItemsList();
@@ -76,6 +77,7 @@ class GalleryUI {
         if (!this.itemsList) return;
         try {
             const res = await fetch("/api/gallery/items");
+            if (handleUnauthorized(res)) return;
             if (!res.ok) return;
             const items = await res.json();
             
@@ -100,7 +102,7 @@ class GalleryUI {
     }
 
     async uploadFile(file) {
-        const stage = this.stageSelect ? this.stageSelect.value : "adulto";
+        const stage = this.stageSelect ? this.stageSelect.value : "larva";
         const formData = new FormData();
         formData.append("file", file);
         formData.append("stage", stage);
@@ -111,6 +113,8 @@ class GalleryUI {
                 method: "POST",
                 body: formData
             });
+
+            if (handleUnauthorized(res)) return;
 
             if (!res.ok) {
                 const err = await res.text();
@@ -132,6 +136,7 @@ class GalleryUI {
         showLoading("Reescaneando directorio local y recalculando vectores BioCLIP...");
         try {
             const res = await fetch("/api/gallery/reindex", { method: "POST" });
+            if (handleUnauthorized(res)) return;
             if (!res.ok) throw new Error("Error en reindexación");
             const data = await res.json();
             alert(`✅ ${data.message} ${data.indexed_images} imágenes indexadas.`);
