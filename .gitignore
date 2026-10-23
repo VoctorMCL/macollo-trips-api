@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+*.egg
+
+# Modelo descargado (se baja automáticamente de HuggingFace)
+*.pt
+*.bin
+*.safetensors
+
+# Datos de la galería (fotos del usuario)
+data/reference_gallery/adulto/*
+data/reference_gallery/ninfa_1/*
+data/reference_gallery/ninfa_2/*
+data/reference_gallery/pupa/*
+data/reference_gallery/dano_gulupa/*
+data/gallery_embeddings.pt
+!data/reference_gallery/*/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
