@@ -1,16 +1,28 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 *.egg-info/
 .venv/
+env/
+venv/
 *.egg
+
+# Cache de Hugging Face / PyTorch / pip (por si se descargan localmente en desarrollo)
+.cache/
+hf_cache/
+
+# Docker
+.docker/
+docker-compose.override.yml
 
 # Modelo descargado (se baja automáticamente de HuggingFace)
 *.pt
 *.bin
 *.safetensors
+*.onnx
 
-# Datos de la galería (fotos del usuario)
+# Datos y secretos
 data/reference_gallery/huevo/*
 data/reference_gallery/larva/*
 data/reference_gallery/pupa/*
@@ -21,13 +33,24 @@ data/api_keys.json
 data/.auth_secret
 !data/reference_gallery/*/.gitkeep
 
-# IDE
+# Variables de entorno
+.env
+.env.local
+.env.*.local
+
+# IDEs
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Logs
+# Logs y temporales
 *.log
+*.tmp
+temp/
+uploads/
