@@ -16,6 +16,12 @@ else
     echo "⚠️ Entorno .venv no encontrado. Ejecutando con python3 del sistema..."
 fi
 
+# Compilar frontend React si aún no existe dist/
+if [ ! -d "frontend/dist" ] && command -v npm &> /dev/null; then
+    echo "📦 Compilando aplicación web React (Vite)..."
+    (cd frontend && npm install && npm run build)
+fi
+
 # Detectar IP local para facilitar acceso desde el celular en el invernadero
 LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 

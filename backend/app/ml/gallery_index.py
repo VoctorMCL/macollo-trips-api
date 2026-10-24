@@ -3,7 +3,6 @@ Gestor e indexador de la Galería de Referencia (Few-Shot Exemplar Gallery) para
 Permite almacenar embeddings de fotos reales del usuario y buscar vecinos más cercanos por similitud de cosenos.
 """
 
-import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from PIL import Image

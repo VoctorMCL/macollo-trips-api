@@ -32,13 +32,35 @@ Sistema de visión artificial y machine learning basado en **BioCLIP 2.5 (`image
 
 ---
 
+## 📚 Documentación Técnica y de Campo
+
+El proyecto cuenta con una biblioteca de documentación completa e indexada en el directorio [`docs/`](./docs/README.md):
+
+| Documento | Enfoque |
+| :--- | :--- |
+| [🏗️ Arquitectura del Sistema](./docs/ARCHITECTURE.md) | Diseño en capas, pipeline BioCLIP 2.5, k-NN Few-Shot y diagramas. |
+| [🔌 Referencia de Endpoints](./docs/ENDPOINTS.md) | Catálogo completo de endpoints con bodies, headers, status y curl. |
+| [🧠 Motor BioCLIP 2.5 & ML](./docs/BIOCLIP-ML.md) | Tensores 1024-d, prompts taxonómicos y formulación matemática. |
+| [🌿 Manejo Agronómico MIP](./docs/AGRONOMY-MIP.md) | Grados-día ($T_0=10.5^\circ\text{C}$), roña en Gulupa y rotación IRAC. |
+| [🔐 Autenticación & Seguridad](./docs/AUTH.md) | Sesiones HMAC-SHA256, API keys con hash SHA-256 y endurecimiento. |
+| [📖 Diccionario de Datos](./docs/DATA-DICTIONARY.md) | Modelos Pydantic, respuestas JSON y esquemas en disco. |
+| [🚀 Guía de Despliegue](./docs/DEPLOYMENT.md) | Docker, systemd, Nginx/Caddy con HTTPS (obligatorio para cámara WebRTC). |
+| [📊 Diagramas de Secuencia](./docs/SEQUENCE_DIAGRAMS.md) | Flujos temporales en Mermaid (predicción, reindexación, login). |
+| [🧪 Aseguramiento de Calidad (Testing)](./docs/TESTING.md) | Suite de 16 pruebas automatizadas, cobertura y protocolo de campo. |
+| [🛠️ Resolución de Problemas](./docs/TROUBLESHOOTING.md) | Soluciones para cámara bloqueada, memoria RAM (OOM), hilos y CORS. |
+| [📱 Manual de Usuario](./docs/USER_MANUAL.md) | Guía práctica para agrónomos y operarios de campo en el invernadero. |
+| [🤝 Guía de Contribución](./docs/CONTRIBUTING.md) | Estándares PEP 8, typing, adición de reglas MIP y flujo Git. |
+| [📝 Registro de Cambios](./docs/CHANGELOG.md) | Historial detallado de versiones y mejoras. |
+
+---
+
 ## 📁 Estructura del Proyecto
 
 ```
 /home/victormcl/Documents/macollo-trips-api/
 ├── backend/
 │   ├── app/
-│   │   ├── config.py                # Umbrales, rutas y configuración
+│   │   ├── config.py                # Umbrales, rutas, CORS y configuración
 │   │   ├── auth.py                  # Login, sesiones firmadas y API keys
 │   │   ├── main.py                  # API FastAPI (CORS, REST, Swagger /docs)
 │   │   ├── ml/
@@ -49,19 +71,47 @@ Sistema de visión artificial y machine learning basado en **BioCLIP 2.5 (`image
 │   │   │   ├── gulupa_cycle.py      # Modelo térmico de desarrollo (grados-día)
 │   │   │   └── gulupa_mip.py        # Recomendaciones de MIP para Gulupa exportación
 │   │   └── schemas/
-│   │       └── prediction.py        # Modelos Pydantic de entrada/salida
+│   │       ├── auth.py              # Modelos Pydantic de autenticación y API keys
+│   │       └── prediction.py        # Modelos Pydantic de predicción y galería
 │   └── tests/
-│       ├── test_api.py              # Pruebas de endpoints HTTP
-│       └── test_ml_pipeline.py      # Pruebas de taxonomía, ciclo y galería
-├── frontend/
-│   ├── index.html                   # Web App PWA móvil para agrónomos
-│   ├── css/
-│   │   └── style.css                # Estilos modernos de alto contraste
-│   └── js/
-│       ├── app.js                   # Login, diagnóstico y conexión con la API
-│       ├── api_keys.js              # Creación y revocación de API keys
-│       ├── camera.js                # Control de cámara trasera y zoom macro
-│       └── gallery.js               # Subida visual y reindexación de fotos
+│       ├── test_api.py              # Pruebas de endpoints HTTP, seguridad y subidas
+│       └── test_ml_pipeline.py      # Pruebas de taxonomía, ciclo, MIP y criptografía
+├── docs/                            # Biblioteca oficial de documentación
+│   ├── README.md                    # Índice maestro de la documentación
+│   ├── ARCHITECTURE.md              # Arquitectura técnica y diseño del sistema
+│   ├── ENDPOINTS.md                 # Especificación de endpoints de la API
+│   ├── BIOCLIP-ML.md                # Fundamentos de Machine Learning y BioCLIP
+│   ├── AGRONOMY-MIP.md              # Fisiología de trips, grados-día y control MIP
+│   ├── AUTH.md                      # Seguridad, sesiones firmadas y API keys
+│   ├── DATA-DICTIONARY.md           # Modelos Pydantic y formatos de persistencia
+│   ├── DEPLOYMENT.md                # Docker, systemd y proxy HTTPS para cámara
+│   ├── SEQUENCE_DIAGRAMS.md         # Diagramas de secuencia Mermaid
+│   ├── TESTING.md                   # Catálogo de pruebas unitarias y de integración
+│   ├── TROUBLESHOOTING.md           # Runbook para solución de incidentes
+│   ├── USER_MANUAL.md               # Manual de usuario para personal de campo
+│   ├── CONTRIBUTING.md               # Guía para desarrolladores y estándares
+│   └── CHANGELOG.md                  # Historial de cambios y versiones
+├── frontend/                        # Aplicación Web React (Vite)
+│   ├── package.json                 # Dependencias React 18 & Vite 6
+│   ├── vite.config.js               # Proxy hacia FastAPI (/api -> 8000)
+│   ├── index.html                   # HTML base de Vite
+│   ├── src/
+│   │   ├── main.jsx                 # Punto de entrada React DOM
+│   │   ├── App.jsx                  # Estado global, tabs, autenticación
+│   │   ├── style.css                # Estilos visuales de alto contraste
+│   │   ├── hooks/
+│   │   │   └── useCamera.js         # Control de cámara WebRTC y zoom macro
+│   │   └── components/
+│   │       ├── Header.jsx           # Barra superior con status y logout
+│   │       ├── LoginScreen.jsx      # Pantalla de acceso de administradores
+│   │       ├── NavigationTabs.jsx   # Navegación entre vistas
+│   │       ├── ScoutView.jsx        # Visor de cámara, zoom macro y diagnóstico
+│   │       ├── DiagnosisCard.jsx    # Tarjeta de resultados, urgencia y MIP
+│   │       ├── GalleryView.jsx      # Subida drag & drop y reindexación
+│   │       ├── ApiKeysView.jsx      # Generación y revocación de API keys
+│   │       ├── HandbookView.jsx     # Ficha técnica agronómica de Gulupa
+│   │       └── SpinnerOverlay.jsx   # Modal de carga animado
+│   └── dist/                        # Bundle optimizado compilado por Vite
 ├── data/
 │   └── reference_gallery/           # Tus fotos reales organizadas por fase
 │       ├── huevo/
@@ -70,6 +120,7 @@ Sistema de visión artificial y machine learning basado en **BioCLIP 2.5 (`image
 │       ├── adulto/
 │       └── dano_gulupa/
 ├── client_example.js                # Snippet JS listo para integrar en tu web actual
+├── GUIA_CONEXION_WEB.md             # Guía paso a paso para conectar webs externas
 ├── requirements.txt                 # Dependencias Python
 ├── run_server.sh                    # Script de arranque para red local
 └── README.md

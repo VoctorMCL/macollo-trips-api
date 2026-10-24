@@ -4,7 +4,7 @@ clasificación de estadios biológicos y calibración con la Galería de Referen
 """
 
 import time
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Optional
 from PIL import Image
 import torch
 import torch.nn.functional as F
@@ -14,7 +14,6 @@ from backend.app.config import (
     BIOCLIP_MODEL_NAME,
     FALLBACK_MODEL_NAME,
     CONFIDENCE_THRESHOLD,
-    settings
 )
 from backend.app.ml.taxonomy_prompts import (
     TAXONOMIC_TARGET_PROMPTS,

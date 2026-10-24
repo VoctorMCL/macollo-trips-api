@@ -4,6 +4,7 @@ Incluye endpoints de inferencia, gestión de galería de fotos de referencia y s
 """
 
 import io
+import re
 import time
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -12,9 +13,7 @@ from typing import Optional
 from fastapi import Depends, FastAPI, UploadFile, File, Form, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, FileResponse
 from PIL import Image
-from pydantic import BaseModel
 
 from backend.app.config import (
     settings,
@@ -25,6 +24,7 @@ from backend.app.config import (
     SESSION_COOKIE_NAME,
     SESSION_COOKIE_SECURE,
     SESSION_TTL_SECONDS,
+    CORS_ORIGINS,
 )
 from backend.app.auth import (
     authenticate_admin,
@@ -37,20 +37,14 @@ from backend.app.auth import (
 )
 from backend.app.ml.bioclip_engine import bioclip_engine
 from backend.app.ml.gallery_index import gallery_manager
-from backend.app.schemas.prediction import (
+from backend.app.schemas import (
     PredictionResponse,
     GalleryStatusResponse,
-    GalleryItem
+    LoginRequest,
+    ApiKeyCreateRequest,
 )
 from backend.app.agronomy.gulupa_cycle import get_gulupa_cycle_estimate
 from backend.app.agronomy.gulupa_mip import get_gulupa_mip_recommendations
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-class ApiKeyCreateRequest(BaseModel):
-    name: str
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -73,7 +67,7 @@ app = FastAPI(
 # Configuración CORS completa para permitir llamadas desde la página web existente del usuario
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -84,7 +78,7 @@ async def disable_ui_cache(request, call_next):
     """Evita que el navegador conserve HTML/CSS/JS viejos del panel."""
     response = await call_next(request)
     path = request.url.path
-    if path == "/" or path.startswith(("/css/", "/js/")):
+    if path == "/" or path.startswith(("/css/", "/js/", "/assets/")):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
     return response
@@ -249,6 +243,15 @@ async def upload_gallery_image(
             detail=f"Estadio no válido '{stage}'. Debe ser uno de: {', '.join(STAGES)}"
         )
 
+    valid_extensions = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+    raw_filename = file.filename or "muestra.jpg"
+    ext = Path(raw_filename).suffix.lower()
+    if ext not in valid_extensions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Extensión no permitida ('{ext}'). Extensiones aceptadas: {', '.join(sorted(valid_extensions))}"
+        )
+
     if not file.content_type.startswith("image/"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -258,7 +261,7 @@ async def upload_gallery_image(
     contents = await file.read()
     # Asegurar que sea una imagen válida
     try:
-        img = Image.open(io.BytesIO(contents)).convert("RGB")
+        Image.open(io.BytesIO(contents)).convert("RGB")
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Imagen no válida: {e}")
 
@@ -266,9 +269,9 @@ async def upload_gallery_image(
     target_dir = GALLERY_DIR / stage_clean
     target_dir.mkdir(parents=True, exist_ok=True)
     
-    # Nombre de archivo seguro
-    clean_name = Path(file.filename).name.replace(" ", "_")
-    target_path = target_dir / f"{int(time.time())}_{clean_name}"
+    # Nombre de archivo seguro sin caracteres especiales ni secuencias de escape
+    clean_base = re.sub(r"[^a-zA-Z0-9_.-]", "_", Path(raw_filename).name)
+    target_path = target_dir / f"{int(time.time())}_{clean_base}"
     
     with open(target_path, "wb") as f:
         f.write(contents)

@@ -71,6 +71,25 @@ class TestAgronomyAndTaxonomy(unittest.TestCase):
         etho_text = " ".join(recs["ethological_control"])
         self.assertTrue("AZULES" in etho_text or "azules" in etho_text)
 
+    def test_mip_damage_manifestation_handling(self):
+        """Verifica que las recomendaciones incluyan directrices especiales si solo hay daño visible."""
+        recs_damage = get_gulupa_mip_recommendations("dano_gulupa", is_damage_only=True)
+        cultural_text = " ".join(recs_damage["cultural_control"])
+        self.assertIn("cacarizado", cultural_text.lower())
+        self.assertIn("exportación", cultural_text.lower())
+
+    def test_auth_token_tampering(self):
+        """Verifica que tokens de sesión alterados sean rechazados."""
+        from backend.app.auth import create_session_token, verify_session_token
+        token = create_session_token("admin")
+        self.assertEqual(verify_session_token(token), "admin")
+
+        # Token corrupto o alterado
+        tampered = token + "xyz"
+        self.assertIsNone(verify_session_token(tampered))
+        self.assertIsNone(verify_session_token("invalid.token.structure"))
+        self.assertIsNone(verify_session_token(None))
+
     def test_gallery_manager_initialization(self):
         """Verifica que la galería se inicialice correctamente y devuelva estadísticas."""
         stats = gallery_manager.get_gallery_stats()

@@ -3,7 +3,7 @@ Definición de jerarquías taxonómicas, descripciones biológicas y prompts par
 enfocados exclusivamente en Trips (Thysanoptera: Thripidae) y el cultivo de Gulupa (Passiflora edulis).
 """
 
-from typing import Dict, List
+from typing import Dict
 
 # 1. Prompts de clasificación binaria / multiclase de objetivo
 # Permite a BioCLIP discriminar si la imagen es un Trips o un organismo/objeto confusor en Gulupa.

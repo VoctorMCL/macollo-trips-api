@@ -97,5 +97,54 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("Gulupa", data["crop"])
         self.assertIn("sample_recommendations", data)
 
+    def test_predict_requires_auth(self):
+        """Verifica que /api/predict exija sesión o X-API-Key."""
+        res = self.client.post("/api/predict")
+        self.assertEqual(res.status_code, 401)
+
+    def test_predict_validates_image_content_type(self):
+        """Verifica que /api/predict rechace archivos que no sean imágenes."""
+        self._login()
+        res = self.client.post(
+            "/api/predict",
+            files={"file": ("test.txt", b"not an image", "text/plain")},
+            data={"temperature_c": 21.0}
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("imagen válida", res.json()["detail"])
+
+    def test_gallery_upload_validations(self):
+        """Verifica validación de estadios y formatos en subida de galería."""
+        self._login()
+        # Estadio inválido
+        bad_stage = self.client.post(
+            "/api/gallery/upload",
+            files={"file": ("foto.jpg", b"fake", "image/jpeg")},
+            data={"stage": "estadio_inexistente"}
+        )
+        self.assertEqual(bad_stage.status_code, 400)
+
+        # Extensión no permitida
+        bad_ext = self.client.post(
+            "/api/gallery/upload",
+            files={"file": ("foto.exe", b"fake", "image/jpeg")},
+            data={"stage": "larva"}
+        )
+        self.assertEqual(bad_ext.status_code, 400)
+        self.assertIn("Extensión no permitida", bad_ext.json()["detail"])
+
+    def test_logout(self):
+        """Verifica que el logout limpie la sesión."""
+        self._login()
+        me_before = self.client.get("/api/auth/me")
+        self.assertEqual(me_before.status_code, 200)
+
+        res_logout = self.client.post("/api/auth/logout")
+        self.assertEqual(res_logout.status_code, 200)
+        self.assertFalse(res_logout.json()["authenticated"])
+
+        me_after = self.client.get("/api/auth/me")
+        self.assertEqual(me_after.status_code, 401)
+
 if __name__ == "__main__":
     unittest.main()

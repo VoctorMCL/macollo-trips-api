@@ -43,6 +43,15 @@ def get_gulupa_mip_recommendations(stage_key: str, is_damage_only: bool = False)
         "Mallas anti-insectos (mínimo 50 mesh / 10x20 hilos por cm²) en ventanas laterales y cenitales del invernadero con doble puerta de acceso."
     ]
 
+    if is_damage_only or stage_key == "dano_gulupa":
+        cultural_control.insert(
+            0,
+            "Evaluación de severidad del cacarizado: segregar frutos afectados. Frutos con raspado superficial menor a 1 cm² pueden destinarse a mercado nacional/agroindustria; frutos con lesión extensa quedan excluidos de exportación directa a Europa (GlobalG.A.P.)."
+        )
+        cultural_control.append(
+            "Protección focalizada en la siguiente cohorte de floración: la cicatriz en frutos confirma infestaciones previas activas en el lote que amenazan las nuevas flores en cuaje."
+        )
+
     # 4. Control Biorracional y Químico (con rotación estricta de modo de acción IRAC)
     chemical_biorational: List[str] = [
         "Biorracional de contacto: Jabón potásico (3-5 cc/L) en mezcla con extracto de Neem (Azadiractina 1%, 1.5 cc/L). Bloquea la muda de ninfas y actúa como repelente anti-alimentario.",
