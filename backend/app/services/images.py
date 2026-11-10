@@ -61,6 +61,10 @@ async def read_image_upload(
     try:
         image = Image.open(io.BytesIO(contents))
         image = ImageOps.exif_transpose(image).convert("RGB")
+        # Optimizar fotos gigantes de cámaras de celular (ej. 12MP-48MP):
+        # BioCLIP solo requiere 224x224 o 336x336. Limitar a max 1280px ahorra
+        # cientos de megabytes de RAM y acelera el preprocesamiento sin perder precisión.
+        image.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
     except (UnidentifiedImageError, OSError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
