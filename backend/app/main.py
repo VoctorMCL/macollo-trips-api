@@ -6,6 +6,7 @@ rojas, y añadir otros objetivos sin reescribir el motor.
 """
 
 from contextlib import asynccontextmanager
+import threading
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,10 +30,10 @@ from backend.app.ml.bioclip_engine import bioclip_engine
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print(f"[{settings.app_name}] Iniciando servicio...")
-    try:
-        bioclip_engine.load_model()
-    except Exception as exc:
-        print(f"[{settings.app_name}] Error precargando BioCLIP: {exc}")
+    # Cargar BioCLIP 2.5 en un hilo en segundo plano para no bloquear el inicio de Uvicorn.
+    # Esto garantiza que el puerto 8080 se abra en menos de 1 segundo y Cloud Run
+    # apruebe el health check de inmediato sin dar timeout.
+    threading.Thread(target=bioclip_engine.load_model, daemon=True).start()
     yield
     print(f"[{settings.app_name}] Deteniendo servicio...")
 
