@@ -6,9 +6,12 @@
  * Puedes copiar y adaptar estas funciones directamente en tu página actual.
  */
 
-// 1. Configura la URL donde corre tu servidor de la API (local o en la nube)
-const FITOSANITARIA_API_BASE_URL = "http://localhost:8000"; // Ej. local: "http://192.168.1.50:8000"
-const FITOSANITARIA_API_KEY = "mk_tu_clave_generada_en_el_panel"; // Genera la clave en "API y accesos"
+// 1. Configura la URL donde corre tu servidor de la API
+// - Producción (Cloud Run): "https://macollo-trips-api-961314735418.us-central1.run.app"
+// - Producción (Dominio propio): "https://macollo.victormcl.me"
+// - Desarrollo local: "http://localhost:8000"
+const FITOSANITARIA_API_BASE_URL = "https://macollo-trips-api-961314735418.us-central1.run.app";
+const FITOSANITARIA_API_KEY = "mk_tu_clave_generada_en_el_panel"; // Genera la clave en "API y accesos" del panel web
 
 /**
  * Envía una foto tomada por la cámara a la API de BioCLIP 2.5.

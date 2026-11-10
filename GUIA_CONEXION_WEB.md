@@ -38,10 +38,14 @@ Tu web Astro  ──────────────►  API FastAPI + BioCL
 La foto **sale del navegador** y se envía a la API. La API responde un JSON.
 Tu web solo muestra ese JSON (o guarda los datos en tu Google Sheet, base de datos, etc.).
 
-Hay dos formas de exponer la API:
+Hay tres formas de exponer y consumir la API:
 
+- **Producción Serverless (Oficial):** `https://macollo-trips-api-961314735418.us-central1.run.app` (Google Cloud Run) o tu dominio `https://macollo.victormcl.me`.
 - **Desarrollo/local:** `http://localhost:8000` o `http://IP-DE-TU-PC:8000`.
-- **Producción:** `https://api.tudominio.com` (con HTTPS). Nunca publiques el puerto `8000` directo a internet.
+- **Túnel de prueba temporal:** con Cloudflare Tunnel (`cloudflared`).
+
+> 💡 **Para integrar otras aplicaciones (móvil, web, backend en Node/Python):**
+> Consulta la nueva **[Guía de Integración para Apps Externas](./docs/INTEGRATION_GUIDE.md)** con ejemplos en JavaScript, Node, Python, Flutter y cURL.
 
 ---
 

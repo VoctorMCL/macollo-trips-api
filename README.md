@@ -49,6 +49,7 @@ El proyecto cuenta con una biblioteca de documentación completa e indexada en e
 
 | Documento | Enfoque |
 | :--- | :--- |
+| [🔌 Guía de Integración para Apps Externa](./docs/INTEGRATION_GUIDE.md) | **Conectar webs (React/Next/Astro), apps móviles (Flutter) y microservicios a la API.** |
 | [🏗️ Arquitectura del Sistema](./docs/ARCHITECTURE.md) | Diseño en capas, pipeline BioCLIP 2.5, k-NN Few-Shot y diagramas. |
 | [🔌 Referencia de Endpoints](./docs/ENDPOINTS.md) | Catálogo completo de endpoints con bodies, headers, status y curl. |
 | [🧠 Motor BioCLIP 2.5 & ML](./docs/BIOCLIP-ML.md) | Tensores 1024-d, prompts taxonómicos y formulación matemática. |

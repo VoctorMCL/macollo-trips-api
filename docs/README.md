@@ -12,7 +12,8 @@ Bienvenido a la documentación oficial del microservicio **Macollo Visión Fitos
 
 | Documento | Audiencia | Propósito y Contenido Principal |
 | :--- | :--- | :--- |
-| [🏗️ Arquitectura](./ARCHITECTURE.md) | Arquitectos, Devs, ML Engineers | Diseño del sistema en capas, flujo de datos, pipeline de inferencia, integración BioCLIP 2.5 + k-NN Few-Shot y diagramas de componentes. |
+| [🔌 Guía de Integración para Apps](./INTEGRATION_GUIDE.md) | Desarrolladores Frontend / Backend / Móvil | Guía completa paso a paso para conectar aplicaciones externas (React, Next.js, Node.js, Python, Flutter, cURL) a la API en Google Cloud Run con API Keys, payload `multipart/form-data`, manejo de cold starts y respuesta JSON. |
+| [🏗️ Arquitectura](./ARCHITECTURE.md) | Arquitectos, Devs, ML Engineers | Design del sistema en capas, flujo de datos, pipeline de inferencia, integración BioCLIP 2.5 + k-NN Few-Shot y diagramas de componentes. |
 | [🔌 Referencia de Endpoints](./ENDPOINTS.md) | Desarrolladores Frontend / Integradores | Catálogo exhaustivo de endpoints HTTP: predicción, autenticación, gestión de API keys, galería y fichas técnicas. Formatos, códigos HTTP y ejemplos con `curl` y `fetch`. |
 | [🧠 Motor BioCLIP 2.5 & ML](./BIOCLIP-ML.md) | Machine Learning / Visión Artificial | Fundamentos del modelo `imageomics/bioclip-2.5-vith14`, espacio latente de 1024 dimensiones, prompts taxonómicos, discriminación de plagas y ensamble Few-Shot. |
 | [🌿 Agronomía & Manejo MIP](./AGRONOMY-MIP.md) | Agrónomos, Asistentes Técnicos, Campo | Biología de *Frankliniella occidentalis* y *Thrips tabaci*, modelo térmico en grados-día ($T_0=10.5^\circ\text{C}$), prevención de roña/cacarizado para exportación GlobalG.A.P., control biológico y rotación IRAC. Incluye referencias a los proveedores de moscas de la fruta y arañas rojas. |

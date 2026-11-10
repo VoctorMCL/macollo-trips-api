@@ -205,4 +205,43 @@ dominio fijo con túnel nombrado, servicio systemd y solución de problemas:
 
 > [!NOTE]
 > El túnel rápido es solo para prototipos: la URL cambia al reiniciar y no tiene SLA.
-> Para producción permanente, usa Nginx/Caddy con un dominio propio (secciones 5.1 y 5.2).
+> Para producción permanente, usa Nginx/Caddy con un dominio propio (secciones 5.1 y 5.2) o Google Cloud Run (sección 7).
+
+---
+
+## 7. Despliegue en Google Cloud Run (Producción Serverless Oficial)
+
+El microservicio está optimizado para ejecutarse en **Google Cloud Run** como contenedor serverless con conexión directa a GitHub y compilación automática mediante **Cloud Build**.
+
+### 7.1. Requisitos de Dimensionamiento en Cloud Run
+El modelo **BioCLIP 2.5 (`imageomics/bioclip-2.5-vith14`)** tiene 632 millones de parámetros. Al inicializarse y realizar inferencia en CPU, alcanza un consumo pico de **~6.5 a 7.2 GB de memoria RAM**:
+
+| Parámetro | Configuración Obligatoria | Motivo |
+| :--- | :---: | :--- |
+| **Memoria RAM** | **8 GiB** (o 16 GiB) | Evita la terminación por falta de memoria (OOM / Error 502 Bad Gateway). |
+| **CPU asignada** | **4 vCPU** (mínimo 2 vCPU) | Reduce la inferencia a 1.2–2.0 segundos y acelera el inicio. |
+| **Puerto del contenedor** | `${PORT:-8080}` | Inyectado dinámicamente por Google Cloud Run. |
+| **Facturación** | *Basada en solicitudes* | Solo factura segundos activos de uso. En inactividad escala a 0 ($0.00 COP). |
+| **Instancias mínimas** | `0` (ahorro) o `1` (baja latencia) | `0` para costo cero en reposo; `1` si se requiere respuesta instantánea sin cold start. |
+| **Instancias máximas** | `2` o `3` | Protección estricta contra picos imprevistos de costos. |
+| **Timeout de solicitud** | `300 segundos` | Margen suficiente para inferencia y arranque en frío. |
+| **Aumento de CPU en inicio** | Habilitado (*CPU Boost*) | Acelera el arranque de la revisión. |
+
+### 7.2. Características del Dockerfile para Cloud Run
+1. **Multi-stage build**: La primera etapa compila la web React con Node.js 20; la segunda empaqueta FastAPI y Python 3.11.
+2. **Precarga de BioCLIP 2.5**: La imagen descarga y hornea los 2.5 GB de pesos en `/root/.cache/huggingface` durante la compilación en Cloud Build.
+3. **Inicio asíncrono**: `bioclip_engine.load_model()` arranca en un hilo en segundo plano (`daemon=True`) para que Uvicorn abra el puerto 8080 en menos de 1 segundo y apruebe de inmediato el *startup probe* de Cloud Run.
+4. **Auto-resizing de fotos**: En `backend/app/services/images.py`, las fotos capturadas con cámaras de alta resolución (12MP a 48MP) se reducen a un máximo de 1280px para prevenir saturación de memoria.
+
+### 7.3. Asignación de Dominio Propio con Cloudflare
+Para usar tu propio dominio (ej. `macollo.victormcl.me`):
+1. En Google Cloud Run, entra al servicio `macollo-trips-api`.
+2. En el menú izquierdo, haz clic en **«Asignaciones de dominios»** (*Domain mappings*) -> **«Agregar asignación»**.
+3. Selecciona tu servicio y escribe tu subdominio (`macollo.victormcl.me`).
+4. Google te dará un registro DNS tipo `CNAME` apuntando a `ghs.googlehosted.com`.
+5. En tu panel de **Cloudflare DNS**, agrega:
+   * **Tipo**: `CNAME`
+   * **Nombre**: `macollo`
+   * **Destino**: `ghs.googlehosted.com`
+   * **Proxy status**: DNS only (Gris) o Proxied (Naranja) según tu preferencia SSL.
+
