@@ -1,6 +1,6 @@
-# 🚀 Guía de Despliegue & Operaciones — Trips BioCLIP 2.5 API
+# 🚀 Guía de Despliegue & Operaciones — Macollo Visión Fitosanitaria API
 
-Esta guía cubre los procedimientos para poner en producción la **API de Trips BioCLIP 2.5 para Gulupa** en servidores locales de finca, máquinas virtuales en la nube (AWS EC2, GCP Compute Engine, DigitalOcean) o contenedores Docker.
+Esta guía cubre los procedimientos para poner en producción la **API de Visión Fitosanitaria para Gulupa** (`macollo-trips-api`) en servidores locales de finca, máquinas virtuales en la nube (AWS EC2, GCP Compute Engine, DigitalOcean) o contenedores Docker. El servicio atiende tres perfiles estables: `trips`, `moscas` (Moscas de la Fruta) y `aranas_rojas` (Arañas Rojas).
 
 ---
 
@@ -28,6 +28,7 @@ Esta guía cubre los procedimientos para poner en producción la **API de Trips 
 | `AUTH_SECRET_KEY` | Clave de firma simétrica HMAC-SHA256 para sesiones. | Generado en `data/.auth_secret` | Cadena aleatoria fija de al menos 64 caracteres. |
 | `SESSION_COOKIE_SECURE` | Exige flag `Secure` en cookies de sesión (solo HTTPS). | `"false"` | **`"true"`** (al servir bajo HTTPS/TLS). |
 | `CORS_ORIGINS` | Lista de orígenes autorizados separados por coma. | `"*"` | `https://macollo.agro.co,https://tu-app.vercel.app` |
+| `DEFAULT_DETECTION_PROFILE` | Perfil usado cuando la petición no envía `profile`. | `"trips"` | `"trips"`, `"moscas"` o `"aranas_rojas"` |
 | `SESSION_TTL_SECONDS` | Tiempo de vida de la sesión web en segundos. | `604800` (7 días) | `604800` o inferior según política de seguridad. |
 
 ---
@@ -38,7 +39,7 @@ El proyecto incluye un [`Dockerfile`](file:///home/victormcl/Documents/macollo-t
 
 ### 3.1 Construir la Imagen
 ```bash
-docker build -t macollo-trips-api:1.0 .
+docker build -t macollo-trips-api:2.0 .
 ```
 
 ### 3.2 Ejecutar el Contenedor con Persistencia de Datos
@@ -56,7 +57,7 @@ docker run -d \
   -e ADMIN_PASSWORD="ClaveMuySeguraYCompleja_2026" \
   -e SESSION_COOKIE_SECURE="true" \
   -e CORS_ORIGINS="https://macollo.agro.co" \
-  macollo-trips-api:1.0
+  macollo-trips-api:2.0
 ```
 
 ### 3.3 Configuración con `docker-compose.yml`
@@ -109,7 +110,7 @@ Crea el archivo `/etc/systemd/system/macollo-trips.service`:
 
 ```ini
 [Unit]
-Description=Macollo Trips BioCLIP 2.5 API Service
+Description=Macollo Visión Fitosanitaria API Service
 After=network.target
 
 [Service]
@@ -179,3 +180,29 @@ trips.mi-finca.com {
     reverse_proxy 127.0.0.1:8000
 }
 ```
+
+---
+
+## 6. Exposición Temporal con Cloudflare Tunnel (Prototipo)
+
+Si necesitas probar la API desde otra red o consumirla desde una página web externa
+sin abrir puertos ni contratar un VPS, puedes publicarla temporalmente por HTTPS con
+**Cloudflare Tunnel**.
+
+```bash
+# Terminal 1 — API solo accesible desde el propio equipo
+.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+
+# Terminal 2 — túnel rápido gratuito
+cloudflared tunnel --url http://127.0.0.1:8000
+```
+
+Cloudflare devuelve una URL `https://...trycloudflare.com` que se usa como base de la API.
+La guía completa incluye instalación de `cloudflared`, CORS, creación de API keys,
+dominio fijo con túnel nombrado, servicio systemd y solución de problemas:
+
+➡️ **[Guía: exponer la API con Cloudflare Tunnel](./CLOUDFLARE-TUNNEL.md)**
+
+> [!NOTE]
+> El túnel rápido es solo para prototipos: la URL cambia al reiniciar y no tiene SLA.
+> Para producción permanente, usa Nginx/Caddy con un dominio propio (secciones 5.1 y 5.2).

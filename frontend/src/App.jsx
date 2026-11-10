@@ -15,6 +15,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("scoutView");
   const [temperature, setTemperature] = useState("20.0");
   const [serverStatus, setServerStatus] = useState(null);
+  const [profiles, setProfiles] = useState([]);
+  const [selectedProfile, setSelectedProfile] = useState("trips");
 
   // Loading overlay
   const [loading, setLoading] = useState(false);
@@ -48,6 +50,27 @@ export default function App() {
     }
   }, []);
 
+  // Catálogo de perfiles (trips, moscas de la fruta, arañas rojas)
+  const loadProfiles = useCallback(async () => {
+    try {
+      const res = await fetch("/api/profiles");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) return;
+      setProfiles(data);
+      setSelectedProfile((current) => {
+        if (data.some((profile) => profile.key === current)) return current;
+        const serverDefault = serverStatus?.default_profile;
+        if (serverDefault && data.some((profile) => profile.key === serverDefault)) {
+          return serverDefault;
+        }
+        return data[0].key;
+      });
+    } catch (err) {
+      console.warn("[Profiles] No se pudo cargar el catálogo:", err);
+    }
+  }, [serverStatus?.default_profile]);
+
   // Health check periódico
   const checkHealth = useCallback(async () => {
     try {
@@ -69,6 +92,10 @@ export default function App() {
     const interval = setInterval(checkHealth, 25000);
     return () => clearInterval(interval);
   }, [checkAuth, checkHealth]);
+
+  useEffect(() => {
+    if (user) loadProfiles();
+  }, [user, loadProfiles]);
 
   const handleLogout = async () => {
     try {
@@ -123,6 +150,9 @@ export default function App() {
             camera={camera}
             temperature={temperature}
             onTemperatureChange={setTemperature}
+            profiles={profiles}
+            selectedProfile={selectedProfile}
+            onProfileChange={setSelectedProfile}
             showLoading={showLoading}
             hideLoading={hideLoading}
             onUnauthorized={handleUnauthorized}
@@ -131,6 +161,7 @@ export default function App() {
 
         {activeTab === "galleryView" && (
           <GalleryView
+            profiles={profiles}
             showLoading={showLoading}
             hideLoading={hideLoading}
             onUnauthorized={handleUnauthorized}
@@ -141,7 +172,13 @@ export default function App() {
           <ApiKeysView onUnauthorized={handleUnauthorized} />
         )}
 
-        {activeTab === "handbookView" && <HandbookView />}
+        {activeTab === "handbookView" && (
+          <HandbookView
+            profiles={profiles}
+            selectedProfile={selectedProfile}
+            onProfileChange={setSelectedProfile}
+          />
+        )}
       </main>
 
       <SpinnerOverlay visible={loading} text={loadingText} />

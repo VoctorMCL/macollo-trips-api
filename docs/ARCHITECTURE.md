@@ -1,6 +1,6 @@
-# 🏗️ Arquitectura del Sistema — Trips BioCLIP 2.5 API
+# 🏗️ Arquitectura del Sistema — Macollo Visión Fitosanitaria API
 
-Este documento describe la arquitectura de software, el diseño por capas, los componentes de inferencia y la integración de hardware de la **API de Trips BioCLIP 2.5 para Gulupa** (`macollo-trips-api`).
+Este documento describe la arquitectura de software, el diseño por capas, los componentes de inferencia y la integración de hardware de la **API de visión fitosanitaria para Gulupa** (`macollo-trips-api`). La versión 2.x organiza el conocimiento en un catálogo extensible de perfiles (`trips`, `moscas`, `aranas_rojas`) y mantiene compatibilidad con el contrato 1.x de trips.
 
 ---
 
@@ -33,13 +33,13 @@ graph TD
     subgraph Core ["🧠 Núcleo de Lógica y Procesamiento"]
         subgraph ML_Subsystem ["Módulo de Machine Learning"]
             ENG["BioCLIPEngine<br/>(open-clip ViT-H/14)"]
-            PROMPTS["TaxonomyPrompts<br/>(Text Embeddings Cacheados)"]
-            GALLERY["GalleryManager<br/>(k-NN Similitud de Cosenos)"]
+            PROMPTS["Catálogo + PromptBank<br/>(Prototipos por Perfil)"]
+            GALLERY["GalleryManager<br/>(k-NN por Perfil)"]
         end
 
         subgraph Agro_Subsystem ["Módulo Agronómico"]
-            CYCLE["GulupaCycleEngine<br/>(Modelo Grados-Día GDD)"]
-            MIP["GulupaMIPEngine<br/>(Reglas Fitosanitarias & IRAC)"]
+            CYCLE["Proveedor de Ciclo<br/>(GDD por Perfil)"]
+            MIP["Proveedor MIP<br/>(Reglas Fitosanitarias & IRAC)"]
         end
     end
 
@@ -81,30 +81,31 @@ graph TD
 - **Middleware `disable_ui_cache`**: Inyecta encabezados `Cache-Control: no-store, no-cache` sobre assets HTML/CSS/JS para garantizar que los operadores en campo siempre utilicen la versión más reciente del panel.
 - **Control de Acceso Dual**:
   - `require_session`: Valida cookies HttpOnly firmadas para las vistas administrativas del panel (`/api/keys`, `/api/gallery`).
-  - `require_api_access`: Valida tanto sesiones de panel como encabezados `X-API-Key: mk_...` para los endpoints de consumo externo (`/api/predict`, `/api/gulupa-handbook`).
+  - `require_api_access`: Valida tanto sesiones de panel como encabezados `X-API-Key: mk_...` para los endpoints de consumo externo (`/api/predict`, `/api/handbook`).
 
 ### 3.2 Capa de Machine Learning (`backend/app/ml/`)
 - **`bioclip_engine.py`**:
   - Gestiona el ciclo de vida del modelo `imageomics/bioclip-2.5-vith14` o su fallback `imageomics/bioclip` (ViT-B/16).
-  - Al iniciar el servicio, precalcula y normaliza en norma L2 los embeddings de texto correspondientes a todas las hipótesis taxonómicas y fases biológicas.
-  - Al recibir una imagen, extrae un vector de características de 1024 dimensiones, evalúa logits mediante producto escalar con escala de temperatura aprendida (`logit_scale`), y calcula la distribución de probabilidad con `softmax`.
+  - Al iniciar el servicio, precalcula y normaliza en norma L2 los embeddings de texto de todos los perfiles del catálogo.
+  - Al recibir una imagen, extrae un vector de características de 1024 dimensiones, evalúa logits mediante producto escalar con escala de temperatura aprendida (`logit_scale`), y calcula la distribución de probabilidad con `softmax` dentro del perfil solicitado.
+- **`prompt_bank.py`**:
+  - Agrupa y promedia los prompts de cada objetivo y estadio para obtener prototipos textuales más estables.
 - **`taxonomy_prompts.py`**:
-  - Define las jerarquías linneanas y descripciones en lenguaje natural que permiten a BioCLIP discriminar insectos Thripidae frente a plagas frecuentes (Hemiptera, Aleyrodidae, Aphididae, Tetranychidae) y hojas/flores sanas.
+  - Se conserva por compatibilidad con la versión 1.x. Las definiciones vigentes viven en `domain/catalog.py`.
 - **`gallery_index.py`**:
   - Mantiene un índice de tensores en memoria y en disco (`data/gallery_embeddings.pt`).
-  - Ejecuta búsquedas $k$-NN con similitud de cosenos para recuperar los ejemplares más cercanos y reforzar la confianza del modelo base.
+  - Ejecuta búsquedas $k$-NN con similitud de cosenos **filtradas por perfil** para recuperar los ejemplares más cercanos.
 
 ### 3.3 Capa Agronómica (`backend/app/agronomy/`)
-- **`gulupa_cycle.py`**:
-  - Implementa el modelo térmico en Grados-Día Acumulados (GDD) con temperatura base $T_0 = 10.5^\circ\text{C}$.
-  - Calcula la duración esperada de cada estadio y los días restantes hasta la emergencia de adultos según la temperatura ambiental suministrada por el usuario o las estaciones meteorológicas.
-- **`gulupa_mip.py`**:
-  - Genera recomendaciones fitosanitarias estructuradas en 5 ejes:
-    1. Control Biológico (*Amblyseius swirskii*, *Orius insidiosus*, *Beauveria bassiana*, *Steinernema feltiae*).
-    2. Control Etológico (trampas cromotrópicas adhesivas azules ~460 nm).
-    3. Control Cultural (poda sanitaria, ventilación, deshierbe de reservorios).
-    4. Control Biorracional y Químico (rotación estricta de modos de acción IRAC).
-    5. Alerta de Exportación (protección de frutos cuajados < 3 cm para evitar pérdidas de calificación GlobalG.A.P.).
+- **`registry.py`**:
+  - Despacha al proveedor agronómico del perfil: `gulupa_trips`, `fruit_flies` o `red_spider_mites`.
+- **`gulupa_cycle.py` y `gulupa_mip.py`** (trips):
+  - Implementan el modelo térmico en Grados-Día Acumulados (GDD) con temperatura base $T_0 = 10.5^\circ\text{C}$ y las recomendaciones MIP de trips.
+- **`flies.py`** (moscas de la fruta):
+  - Ciclo biológico y plan MIP de *Anastrepha* spp.
+- **`mites.py`** (arañas rojas):
+  - Ciclo biológico y plan MIP de *Tetranychus urticae*.
+- Todos los proveedores generan recomendaciones estructuradas en 5 ejes (biológico, etológico, cultural, químico/biorracional y alerta de exportación), adaptados a su organismo.
 
 ### 3.4 Capa de Esquemas y Serialización (`backend/app/schemas/`)
 - **`prediction.py`**: Define los contratos de datos `PredictionResponse`, `CycleInfo`, `AgronomicRecommendations`, `ExemplarMatch`, `GalleryStatusResponse`.
@@ -128,23 +129,23 @@ sequenceDiagram
     API->>Auth: require_api_access()
     Auth-->>API: Acceso autorizador (API Key / Sesión)
     
-    API->>Bio: predict(image, temperature_c)
+    API->>Bio: predict(image, profile, temperature_c)
     Note over Bio: 1. Preprocesar imagen (Resize 224x224, Normalize)<br/>2. encode_image() -> Vector latente v (1024-d, ||v||=1)
     
-    Bio->>Bio: Comparar v vs Text Prompts Taxonómicos<br/>(Trips vs Otras Plagas vs Tejido Sano)
-    Bio->>Gal: query_nearest(v, top_k=3)
-    Gal-->>Bio: Top 3 coincidencias con similitud y estadio
+    Bio->>Bio: Comparar v vs prototipos del perfil seleccionado
+    Bio->>Gal: query_nearest(v, top_k, profile)
+    Gal-->>Bio: Top k coincidencias del mismo perfil con similitud y estadio
     
     Bio->>Bio: Ajustar probabilidad con soporte de Galería Few-Shot
-    Bio->>Bio: Comparar v vs Prompts de Estadios (Huevo, Larva, Pupa, Adulto, Daño)
+    Bio->>Bio: Comparar v vs Prompts de Estadios del perfil
     
-    alt Es Trips
-        Bio->>Agro: get_gulupa_cycle_estimate(estadio, temp)
+    alt Es el objetivo positivo del perfil
+        Bio->>Agro: get_cycle_estimate(perfil, estadio, temp)
         Agro-->>Bio: Días restantes, urgencia y rationale
-        Bio->>Agro: get_gulupa_mip_recommendations(estadio, is_damage)
+        Bio->>Agro: get_mip_recommendations(perfil, estadio, is_damage)
         Agro-->>Bio: Plan fitosanitario completo y alerta GlobalG.A.P.
-    else No es Trips
-        Bio->>Bio: Clasificar organismo confusor detectado
+    else Clase confusora, daño o tejido sano
+        Bio->>Bio: Clasificar objetivo detectado y marcar is_positive=false
     end
 
     Bio-->>API: Dict con diagnóstico completo y tiempos ms

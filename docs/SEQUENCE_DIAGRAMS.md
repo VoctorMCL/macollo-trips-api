@@ -1,4 +1,4 @@
-# 📊 Diagramas de Secuencia — Trips BioCLIP 2.5 API
+# 📊 Diagramas de Secuencia — Macollo Visión Fitosanitaria API
 
 Este documento presenta los flujos de interacción temporal entre los componentes del sistema mediante diagramas Mermaid estructurados.
 
@@ -6,7 +6,7 @@ Este documento presenta los flujos de interacción temporal entre los componente
 
 ## 1. Flujo de Inferencia Fitosanitaria en Tiempo Real
 
-Ilustra la recepción de una foto de campo desde la cámara móvil, la autenticación, la proyección en el espacio latente de BioCLIP 2.5, la búsqueda de vecinos cercanos y la generación del dictamen agronómico.
+Ilustra la recepción de una foto de campo desde la cámara móvil, la autenticación, la proyección en el espacio latente de BioCLIP 2.5, la búsqueda de vecinos cercanos y la generación del dictamen agronómico para el perfil solicitado (`trips`, `moscas` o `aranas_rojas`).
 
 ```mermaid
 sequenceDiagram
@@ -17,14 +17,14 @@ sequenceDiagram
     participant Auth as Validador de Acceso
     participant Bio as BioCLIP 2.5 Engine
     participant Gal as Gallery Index (k-NN)
-    participant Agro as Motor Fitosanitario Gulupa
+    participant Agro as Motor Agronómico por Perfil
 
-    Operario->>UI: Captura foto con retícula macro + Temperatura
-    UI->>API: POST /api/predict (multipart/form-data con imagen y temp_c)
+    Operario->>UI: Captura foto con retícula macro + Temperatura + Perfil
+    UI->>API: POST /api/predict (multipart: file, temperature_c, profile, crop)
     API->>Auth: require_api_access(header, cookie)
     Auth-->>API: Autorizado (API Key válida o Sesión activa)
     
-    API->>Bio: predict(image, temperature_c)
+    API->>Bio: predict(image, profile, temperature_c)
     
     critical Extracción de Características
         Bio->>Bio: Preprocesamiento (Resize 224x224, Tensor Normalization)
@@ -32,27 +32,27 @@ sequenceDiagram
     end
 
     critical Discriminación Taxonómica
-        Bio->>Bio: Producto escalar vs Text Prompts Cacheados
-        Bio->>Bio: Softmax con Logit Scale -> Probabilidad Trips vs Plagas Confusoras
+        Bio->>Bio: Producto escalar vs prototipos del perfil seleccionado
+        Bio->>Bio: Softmax con Logit Scale -> probabilidad por objetivo
     end
 
     opt Consulta a Memoria Empírica (Few-Shot)
-        Bio->>Gal: query_nearest(v_img, top_k=3)
-        Gal-->>Bio: Lista de ejemplares con similitud de cosenos y fase
-        Bio->>Bio: Calibrar confianza y estadio con voto de ejemplares (si sim > 0.65)
+        Bio->>Gal: query_nearest(v_img, top_k, profile)
+        Gal-->>Bio: Ejemplares del mismo perfil con similitud y estadio
+        Bio->>Bio: Calibrar confianza y estadio con voto de ejemplares
     end
 
-    alt Es Trips Confirmado
-        Bio->>Agro: get_gulupa_cycle_estimate(estadio, temp_c)
-        Agro-->>Bio: Días restantes a adulto, duración y nivel de urgencia
-        Bio->>Agro: get_gulupa_mip_recommendations(estadio, is_damage)
+    alt Objetivo positivo confirmado
+        Bio->>Agro: get_cycle_estimate(perfil, estadio, temp_c)
+        Agro-->>Bio: Días restantes, duración y nivel de urgencia
+        Bio->>Agro: get_mip_recommendations(perfil, estadio, is_damage)
         Agro-->>Bio: Plan fitosanitario (Biológico, Etológico, Cultural, Químico IRAC)
-    else No es Trips (Plaga Confusora u Hoja Sana)
-        Bio->>Bio: Etiquetar como Mosca Blanca, Pulgón, Ácaro o Tejido Sano
+    else Clase confusora, daño o tejido sano
+        Bio->>Bio: Etiquetar objetivo detectado y marcar is_positive=false
     end
 
     Bio-->>API: Estructura de diagnóstico completa
-    API-->>UI: 200 OK JSON (PredictionResponse)
+    API-->>UI: 200 OK JSON (PredictionResponse con detection)
     UI-->>Operario: Renderiza banner de alerta, fase, días y recomendaciones
 ```
 
@@ -72,15 +72,16 @@ sequenceDiagram
     participant Bio as BioCLIP Engine
     participant Gal as Gallery Index
 
-    Admin->>UI: Selecciona estadio ("larva") y arrastra foto real
-    UI->>API: POST /api/gallery/upload (file, stage="larva")
+    Admin->>UI: Selecciona perfil, objetivo y estadio, y arrastra una foto real
+    UI->>API: POST /api/gallery/upload (file, label o profile+target+stage)
     
-    API->>API: Validar extensión (.jpg/.png/.webp) y sanitizar nombre
-    API->>Disk: Guardar archivo en data/reference_gallery/larva/TIMESTAMP_nombre.jpg
+    API->>API: Resolver carpeta de galería con /api/gallery/labels
+    API->>API: Validar extensión (.jpg/.png/.webp/.bmp) y sanitizar nombre
+    API->>Disk: Guardar archivo en data/reference_gallery/{perfil}/{objetivo}/{estadio}/
     
     API->>Gal: rebuild_index(model, preprocess, device)
     
-    loop Para cada foto en data/reference_gallery/*
+    loop Para cada foto del catálogo de galería
         Gal->>Disk: Leer imagen física
         Gal->>Bio: Extraer embedding con ViT-H/14
         Bio-->>Gal: Tensor normalizado 1024-d
@@ -88,8 +89,8 @@ sequenceDiagram
 
     Gal->>Disk: Guardar checkpoint consolidado en data/gallery_embeddings.pt
     Gal-->>API: Total de imágenes indexadas
-    API-->>UI: 200 OK {message, total_indexed_images}
-    UI-->>Admin: Actualiza estadísticas y lista visual
+    API-->>UI: 200 OK {message, label, profile, target, total_indexed_images}
+    UI-->>Admin: Actualiza estadísticas por perfil/objetivo/estadio
 ```
 
 ---
@@ -135,18 +136,18 @@ sequenceDiagram
     actor Usuario as 🌾 Usuario en Portal Macollo
     participant Web as Portal Web Macollo (Astro / Next.js)
     participant Weather as API SIATA / Open-Meteo
-    participant TripsAPI as Macollo Trips API (FastAPI)
+    participant TripsAPI as Macollo Visión Fitosanitaria API (FastAPI)
 
     Usuario->>Web: Carga sección "Diagnóstico de Campo"
     Web->>Weather: Consultar temperatura en tiempo real del lote
     Weather-->>Web: 21.5 °C
     
-    Usuario->>Web: Adjunta foto tomada con lupa macro
+    Usuario->>Web: Selecciona perfil (trips/moscas/aranas_rojas) y adjunta foto macro
     
-    Web->>TripsAPI: POST /api/predict<br/>Header: X-API-Key: mk_...<br/>Body: FormData(file, temperature_c=21.5, crop="gulupa")
+    Web->>TripsAPI: POST /api/predict<br/>Header: X-API-Key: mk_...<br/>Body: FormData(file, temperature_c=21.5, crop="gulupa", profile="trips")
     
     TripsAPI->>TripsAPI: Validar API Key y procesar BioCLIP 2.5
-    TripsAPI-->>Web: 200 OK JSON con diagnóstico, ciclo en 21.5°C y recomendaciones MIP
+    TripsAPI-->>Web: 200 OK JSON con detection, ciclo en 21.5°C y recomendaciones MIP
     
     Web-->>Usuario: Muestra en pantalla el dictamen fitosanitario integrado
 ```

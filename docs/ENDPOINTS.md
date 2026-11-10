@@ -1,6 +1,6 @@
-# 🔌 Referencia de Endpoints — Trips BioCLIP 2.5 API
+# 🔌 Referencia de Endpoints — Macollo Visión Fitosanitaria API
 
-Esta guía documenta la totalidad de los endpoints expuestos por la API REST de **Macollo Trips**, incluyendo métodos HTTP, parámetros de entrada, esquemas de respuesta, códigos de estado y ejemplos prácticos con `curl` y JavaScript `fetch`.
+Esta guía documenta la totalidad de los endpoints expuestos por la API REST de **Macollo Visión Fitosanitaria**, incluyendo métodos HTTP, parámetros de entrada, esquemas de respuesta, códigos de estado y ejemplos prácticos con `curl` y JavaScript `fetch`. La API atiende los perfiles `trips`, `moscas` y `aranas_rojas`.
 
 ---
 
@@ -8,8 +8,12 @@ Esta guía documenta la totalidad de los endpoints expuestos por la API REST de 
 
 | Categoría | Método | Ruta | Autenticación | Descripción |
 | :--- | :--- | :--- | :--- | :--- |
-| **Diagnóstico** | `POST` | `/api/predict` | `X-API-Key` o Sesión | Inferencia BioCLIP 2.5, estadio, ciclo térmico y MIP. |
-| **Diagnóstico** | `GET` | `/api/gulupa-handbook` | `X-API-Key` o Sesión | Ficha agronómica y ciclo fenológico a temperatura dada. |
+| **Diagnóstico** | `POST` | `/api/predict` | `X-API-Key` o Sesión | Inferencia BioCLIP 2.5 para cualquier perfil, estadio, ciclo térmico y MIP. |
+| **Diagnóstico** | `GET` | `/api/handbook` | `X-API-Key` o Sesión | Ficha genérica y recomendaciones de ejemplo para un perfil. |
+| **Diagnóstico** | `GET` | `/api/gulupa-handbook` | `X-API-Key` o Sesión | Ficha histórica de trips y ciclo fenológico a temperatura dada. |
+| **Catálogo** | `GET` | `/api/catalog` | Pública | Catálogo completo de perfiles, objetivos y estadios. |
+| **Catálogo** | `GET` | `/api/profiles` | Pública | Lista de perfiles de detección disponibles. |
+| **Catálogo** | `GET` | `/api/profiles/{profile_key}` | Pública | Detalle de un perfil: objetivos, estadios y umbral. |
 | **Salud** | `GET` | `/api/health` | Pública | Estado del servidor, modelo cargado, GPU/CPU y galería. |
 | **Autenticación** | `POST` | `/api/auth/login` | Pública | Inicio de sesión administrativo en el panel web. |
 | **Autenticación** | `POST` | `/api/auth/logout` | Pública | Cierre de sesión y eliminación de cookie de panel. |
@@ -17,19 +21,20 @@ Esta guía documenta la totalidad de los endpoints expuestos por la API REST de 
 | **API Keys** | `GET` | `/api/keys` | Sesión requerida | Lista de claves de API activas y revocadas. |
 | **API Keys** | `POST` | `/api/keys` | Sesión requerida | Emisión de una nueva API Key. Muestra la clave completa una vez. |
 | **API Keys** | `DELETE` | `/api/keys/{key_id}` | Sesión requerida | Revocación inmediata de una API Key por su ID. |
-| **Galería** | `GET` | `/api/gallery` | Sesión requerida | Estadísticas de fotos de referencia por estadio. |
+| **Galería** | `GET` | `/api/gallery` | Sesión requerida | Estadísticas de fotos de referencia por perfil, objetivo y estadio. |
 | **Galería** | `GET` | `/api/gallery/items` | Sesión requerida | Lista detallada de archivos de fotos en disco. |
-| **Galería** | `POST` | `/api/gallery/upload` | Sesión requerida | Sube una foto real y la indexa vectorialmente. |
+| **Galería** | `GET` | `/api/gallery/labels` | Sesión requerida | Carpetas válidas agrupadas por perfil (acepta `?profile=`). |
+| **Galería** | `POST` | `/api/gallery/upload` | Sesión requerida | Sube una foto real y la indexa vectorialmente (`label` recomendado). |
 | **Galería** | `POST` | `/api/gallery/reindex` | Sesión requerida | Fuerza el reescaneo e indexación de fotos en disco. |
 
 ---
 
 ## 1. Endpoints de Diagnóstico Fitosanitario
 
-### 1.1 Inferencia Fitosanitaria de Trips
+### 1.1 Inferencia Fitosanitaria por Perfil
 `POST /api/predict`
 
-Recibe una fotografía en formato de imagen (`multipart/form-data`) junto con la temperatura actual del invernadero y devuelve el diagnóstico completo.
+Recibe una fotografía en formato de imagen (`multipart/form-data`) junto con la temperatura actual del invernadero y el perfil de detección, y devuelve el diagnóstico completo.
 
 #### Encabezados Requeridos
 | Encabezado | Valor / Ejemplo | Obligatorio |
@@ -41,7 +46,14 @@ Recibe una fotografía en formato de imagen (`multipart/form-data`) junto con la
 | :--- | :--- | :--- | :--- |
 | `file` | Archivo binario | Sí | Fotografía de la muestra (hoja, flor, fruto, insecto). Formatos permitidos: JPG, PNG, WebP, BMP. |
 | `temperature_c` | Número flotante | No (def: `20.0`) | Temperatura ambiental en °C medida en el invernadero (ej. de SIATA u Open-Meteo). |
-| `crop` | Cadena | No (def: `"gulupa"`) | Nombre del cultivo de pasiflora evaluado. |
+| `crop` | Cadena | No (def: el del perfil) | Nombre del cultivo evaluado. |
+| `profile` | Cadena | No (def: `"trips"`) | Perfil de detección: `trips`, `moscas` o `aranas_rojas`. |
+| `use_tta` | Booleano | No (def: `ENABLE_TTA`) | Activa test-time augmentation (más preciso, más lento). |
+
+> La respuesta conserva los campos históricos `is_thrips`, `thrips_confidence`,
+> `detected_target`, `detected_stage`, etc. para clientes 1.x. Los campos
+> `profile`, `crop` y `detection` son el contrato genérico 2.x que debes usar
+> para moscas de la fruta, arañas rojas y futuros perfiles.
 
 #### Ejemplo de Petición con `curl`
 ```bash
@@ -49,18 +61,39 @@ curl -X POST "http://localhost:8000/api/predict" \
   -H "X-API-Key: mk_tu_clave_generada" \
   -F "file=@/home/campo/muestras/larva_flor.jpg" \
   -F "temperature_c=22.5" \
-  -F "crop=gulupa"
+  -F "crop=gulupa" \
+  -F "profile=trips"
 ```
 
 #### Respuesta Exitosa (`200 OK`)
 ```json
 {
+  "profile": "trips",
+  "crop": "gulupa",
   "is_thrips": true,
   "thrips_confidence": 0.9412,
   "detected_target": "Trips de las Flores (Frankliniella occidentalis / Thrips tabaci)",
   "detected_stage": "Larva (Ninfa)",
   "stage_confidence": 0.8954,
   "is_damage_manifestation": false,
+  "detection": {
+    "profile": "trips",
+    "profile_name": "Trips",
+    "category": "pest",
+    "is_positive": true,
+    "confidence": 0.9412,
+    "is_uncertain": false,
+    "target_key": "trips_frankliniella_occidentalis",
+    "target_name": "Trips de las Flores",
+    "scientific_name": "Frankliniella occidentalis",
+    "target_description": "Especie polífaga, principal vector de tospovirus en gulupa.",
+    "profile_experimental": false,
+    "scores": {
+      "trips_frankliniella_occidentalis": 0.71,
+      "trips_general": 0.18,
+      "neg_mosca_blanca": 0.04
+    }
+  },
   "cycle_info": {
     "temperature_c": 22.5,
     "detected_stage_key": "larva",
@@ -119,20 +152,24 @@ curl -X POST "http://localhost:8000/api/predict" \
 ---
 
 ### 1.2 Manual Agronómico y Ciclo a Temperatura Dada
-`GET /api/gulupa-handbook`
+`GET /api/handbook`
 
-Retorna la ficha técnica de plagas y el ciclo biológico modelado para una temperatura específica.
+Retorna la ficha técnica del perfil solicitado y el ciclo biológico modelado para una temperatura específica. Es el endpoint recomendado para integraciones 2.x.
 
 #### Parámetros de Consulta (Query String)
 | Parámetro | Tipo | Requerido | Descripción |
 | :--- | :--- | :--- | :--- |
+| `profile` | Cadena | No (def: `"trips"`) | Perfil: `trips`, `moscas` o `aranas_rojas`. |
 | `temperature_c` | Número flotante | No (def: `20.0`) | Temperatura a evaluar (°C). |
 
 #### Ejemplo con `curl`
 ```bash
-curl -X GET "http://localhost:8000/api/gulupa-handbook?temperature_c=24.0" \
+curl -X GET "http://localhost:8000/api/handbook?profile=aranas_rojas&temperature_c=24.0" \
   -H "X-API-Key: mk_tu_clave"
 ```
+
+> `GET /api/gulupa-handbook` se conserva como **alias histórico** de trips y acepta
+> solo `temperature_c`. Para código nuevo usa `/api/handbook?profile=...`.
 
 ---
 
@@ -147,14 +184,21 @@ Endpoint liviano y público (sin autenticación) para balanceadores de carga, sc
 ```json
 {
   "status": "healthy",
-  "app_name": "Gulupa Trips BioCLIP 2.5 API",
-  "version": "1.0.0",
+  "app_name": "Macollo Visión Fitosanitaria API",
+  "version": "2.0.0",
   "model_loaded": true,
   "model_name": "hf-hub:imageomics/bioclip-2.5-vith14",
   "device": "cpu",
+  "default_profile": "trips",
+  "profiles": [
+    {"key": "trips", "name": "Trips", "experimental": false},
+    {"key": "moscas", "name": "Moscas de la Fruta", "experimental": false},
+    {"key": "aranas_rojas", "name": "Arañas Rojas", "experimental": false}
+  ],
   "gallery_total_images": 12,
   "gallery_is_indexed": true,
-  "server_time_iso": "2026-10-24T10:00:00Z"
+  "gallery_is_stale": false,
+  "server_time_iso": "2026-11-10T10:00:00Z"
 }
 ```
 
@@ -270,23 +314,72 @@ Invalida inmediatamente la clave especificada. Retorna `404 Not Found` si el ide
     "adulto": 5,
     "dano_gulupa": 2
   },
+  "by_label": {
+    "larva": 10,
+    "moscas/mosca_frutal_anastrepha/adulto": 3
+  },
+  "by_profile": {
+    "trips": 21,
+    "moscas": 3
+  },
+  "by_target": {
+    "trips_general": 21,
+    "mosca_frutal_anastrepha": 3
+  },
   "is_indexed": true,
+  "is_stale": false,
+  "indexed_images": 24,
   "index_path": "/home/.../data/gallery_embeddings.pt"
 }
 ```
 
-### 5.2 Subir Foto Real a la Galería
+### 5.2 Carpetas Válidas de Galería
+`GET /api/gallery/labels`
+
+Devuelve las carpetas válidas y su significado. Acepta `?profile=trips|moscas|aranas_rojas`.
+
+```json
+{
+  "items": [
+    {
+      "key": "moscas/mosca_frutal_anastrepha/larva",
+      "profile": "moscas",
+      "target": "mosca_frutal_anastrepha",
+      "stage": "larva",
+      "display_name": "Moscas de la Fruta · Mosca de la Fruta · Larva (Maggot)"
+    }
+  ],
+  "by_profile": {
+    "moscas": ["..."]
+  }
+}
+```
+
+### 5.3 Subir Foto Real a la Galería
 `POST /api/gallery/upload`
 
 Permite guardar una nueva imagen en el banco de fotos de la finca y recalcular automáticamente el índice de tensores.
 
 #### Parámetros (`multipart/form-data`)
-| Campo | Tipo | Requerido | Valores Permitidos |
+| Campo | Tipo | Requerido | Descripción |
 | :--- | :--- | :--- | :--- |
-| `file` | Binario | Sí | Imagen JPG, PNG, WebP |
-| `stage` | Texto | Sí | `huevo`, `larva`, `pupa`, `adulto`, `dano_gulupa` |
+| `file` | Binario | Sí | Imagen JPG, PNG, WebP o BMP. |
+| `label` | Texto | Recomendado | Clave exacta de `/api/gallery/labels` (ej. `moscas/mosca_frutal_anastrepha/larva`). |
+| `profile` | Texto | Alternativo | `trips`, `moscas` o `aranas_rojas`. |
+| `target` | Texto | Alternativo | Objetivo del catálogo. Por defecto, el positivo del perfil. |
+| `stage` | Texto | Alternativo | Estadio del perfil o carpeta histórica de trips. |
 
-### 5.3 Forzar Reindexación Local
+> Si envías `label`, los demás campos se ignoran. Para trips se conservan las
+> carpetas históricas `huevo`, `larva`, `pupa`, `adulto` y `dano_gulupa`.
+
+#### Ejemplo con `curl`
+```bash
+curl -b cookies.txt -X POST "http://localhost:8000/api/gallery/upload" \
+  -F "file=@/ruta/foto.jpg" \
+  -F "label=moscas/mosca_frutal_anastrepha/adulto"
+```
+
+### 5.4 Forzar Reindexación Local
 `POST /api/gallery/reindex`
 
 Recorre todos los archivos colocados manualmente en `data/reference_gallery/`, genera sus vectores latentes con BioCLIP 2.5 y actualiza `gallery_embeddings.pt`.

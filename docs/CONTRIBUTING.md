@@ -1,6 +1,6 @@
-# 🤝 Guía de Contribución — Trips BioCLIP 2.5 API
+# 🤝 Guía de Contribución — Macollo Visión Fitosanitaria API
 
-Gracias por tu interés en colaborar con el desarrollo y optimización de la **API de Trips BioCLIP 2.5 para Gulupa** (`macollo-trips-api`).
+Gracias por tu interés en colaborar con el desarrollo y optimización de la **API de Visión Fitosanitaria para Gulupa** (`macollo-trips-api`).
 
 ---
 
@@ -33,32 +33,43 @@ pip install -r requirements.txt
 
 ---
 
-## 3. Cómo Agregar Nuevos Prompts Taxonómicos
+## 3. Cómo Agregar Nuevos Objetivos o Perfiles
 
-Si se desea incorporar una nueva plaga confusora o una nueva especie de trips:
+El conocimiento fitosanitario es declarativo y vive en
+[`backend/app/domain/catalog.py`](file:///home/victormcl/Documents/macollo-trips-api/backend/app/domain/catalog.py).
 
-1. Abre [`backend/app/ml/taxonomy_prompts.py`](file:///home/victormcl/Documents/macollo-trips-api/backend/app/ml/taxonomy_prompts.py).
-2. Si es una especie de Trips:
-   - Agrega la clave al diccionario `TAXONOMIC_TARGET_PROMPTS` con su jerarquía linneana completa en inglés (Reino, Filo, Clase, Orden, Familia, Género, Especie):
-     ```python
-     "trips_nueva_especie": "Animalia Arthropoda Insecta Thysanoptera Thripidae NuevaEspecie, close-up photo of thrips on passionfruit..."
-     ```
-   - Agrega la clave a la lista `POSITIVE_TRIPS_KEYS`.
-3. Si es un organismo confusor o síntoma vegetal:
-   - Agrégalo como clave con prefijo `neg_` (ej. `neg_nueva_plaga`).
-   - Mapea su nombre legible en el diccionario `labels_map` de [`backend/app/ml/bioclip_engine.py`](file:///home/victormcl/Documents/macollo-trips-api/backend/app/ml/bioclip_engine.py).
+1. **Agregar un objetivo a un perfil existente**:
+   - Registra un `DetectionTarget` con `_register(...)`.
+   - Incluye su `key`, nombre común, nombre científico, `kind` (`pest`, `damage`, `healthy`, `other`) y uno o más `prompts` en inglés.
+   - Añade la clave a `target_keys` del perfil correspondiente.
+2. **Agregar un estadio**:
+   - Crea un `StageDefinition` en el diccionario de estadios del perfil (`TRIPS_STAGES`, `MOSCAS_STAGES`, `ARANAS_ROJAS_STAGES`).
+3. **Crear un perfil nuevo**:
+   - Define un `DetectionProfile` con sus `target_keys`, `positive_target_keys`, `stages`, `crop`, umbrales (`min_confidence`, `min_margin`) y `agronomy_provider`.
+   - Regístralo en `PROFILES`.
+   - Implementa su proveedor agronómico y regístralo en [`backend/app/agronomy/registry.py`](file:///home/victormcl/Documents/macollo-trips-api/backend/app/agronomy/registry.py).
+   - Añade pruebas en `backend/tests/test_catalog.py`.
+
+> El motor de ML, la galería, la API y la interfaz web se adaptan automáticamente
+> al catálogo. No es necesario modificar `bioclip_engine.py` para un perfil nuevo.
+> Consulta la guía completa en [`docs/EXTENDING.md`](./EXTENDING.md).
 
 ---
 
 ## 4. Cómo Modificar las Recomendaciones MIP
 
-Las directrices fitosanitarias se gestionan en [`backend/app/agronomy/gulupa_mip.py`](file:///home/victormcl/Documents/macollo-trips-api/backend/app/agronomy/gulupa_mip.py):
-- Mantén las recomendaciones organizadas en los 5 ejes obligatorios:
-  1. `biological_control`
-  2. `ethological_control`
-  3. `cultural_control`
-  4. `chemical_biorational_control` (con advertencia expresa de rotación IRAC)
-  5. `export_impact_alert` (alineada con requisitos de fruta fresca GlobalG.A.P.)
+Las directrices fitosanitarias se gestionan por proveedor agronómico:
+- **Trips**: [`backend/app/agronomy/gulupa_cycle.py`](file:///home/victormcl/Documents/macollo-trips-api/backend/app/agronomy/gulupa_cycle.py) y [`gulupa_mip.py`](file:///home/victormcl/Documents/macollo-trips-api/backend/app/agronomy/gulupa_mip.py).
+- **Moscas de la fruta**: [`backend/app/agronomy/flies.py`](file:///home/victormcl/Documents/macollo-trips-api/backend/app/agronomy/flies.py).
+- **Arañas rojas**: [`backend/app/agronomy/mites.py`](file:///home/victormcl/Documents/macollo-trips-api/backend/app/agronomy/mites.py).
+- El despacho por perfil está en [`registry.py`](file:///home/victormcl/Documents/macollo-trips-api/backend/app/agronomy/registry.py).
+
+Mantén las recomendaciones organizadas en los 5 ejes obligatorios:
+1. `biological_control`
+2. `ethological_control`
+3. `cultural_control`
+4. `chemical_biorational_control` (con advertencia expresa de rotación IRAC)
+5. `export_impact_alert` (alineada con requisitos de fruta fresca GlobalG.A.P.)
 
 ---
 
@@ -70,7 +81,7 @@ Antes de crear una rama o enviar un Pull Request, ejecuta la suite de pruebas au
 .venv/bin/python -m unittest discover backend/tests
 ```
 
-Todas las pruebas deben finalizar en estado `OK`.
+Todas las pruebas deben finalizar en estado `OK` (actualmente **23 pruebas**).
 
 ---
 

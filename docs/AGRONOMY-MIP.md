@@ -1,6 +1,14 @@
 # 🌿 Manejo Agronómico MIP & Ciclo Térmico de Trips en Gulupa
 
-Este documento constituye la guía técnica oficial agronómica implementada en el motor de decisiones de **Macollo Trips API** para el cultivo comercial de **Gulupa (*Passiflora edulis f. edulis*)**, con especial atención a la exportación de fruta fresca hacia mercados exigentes como la Unión Europea (normas GlobalG.A.P.).
+Este documento constituye la guía técnica oficial agronómica implementada en el motor de decisiones de **Macollo Visión Fitosanitaria API** para el cultivo comercial de **Gulupa (*Passiflora edulis f. edulis*)**, con especial atención a la exportación de fruta fresca hacia mercados exigentes como la Unión Europea (normas GlobalG.A.P.).
+
+> [!NOTE]
+> **Alcance:** esta guía describe el perfil `trips` (el más detallado y con
+> trayectoria desde la versión 1.x). Los perfiles `moscas` (Moscas de la Fruta) y
+> `aranas_rojas` (Arañas Rojas) tienen sus propios ciclos y planes MIP en
+> [`backend/app/agronomy/flies.py`](../backend/app/agronomy/flies.py) y
+> [`backend/app/agronomy/mites.py`](../backend/app/agronomy/mites.py). El despacho
+> por perfil está en [`backend/app/agronomy/registry.py`](../backend/app/agronomy/registry.py).
 
 ---
 

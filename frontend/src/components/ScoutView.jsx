@@ -1,10 +1,13 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import DiagnosisCard from "./DiagnosisCard";
 
 export default function ScoutView({
   camera,
   temperature,
   onTemperatureChange,
+  profiles = [],
+  selectedProfile = "trips",
+  onProfileChange,
   showLoading,
   hideLoading,
   onUnauthorized
@@ -12,6 +15,14 @@ export default function ScoutView({
   const [diagnosis, setDiagnosis] = useState(null);
   const fileInputRef = useRef(null);
   const cardRef = useRef(null);
+
+  const activeProfile =
+    profiles.find((profile) => profile.key === selectedProfile) || null;
+
+  useEffect(() => {
+    // Evita mostrar un diagnóstico de un perfil anterior al cambiar de perfil.
+    setDiagnosis(null);
+  }, [selectedProfile]);
 
   const handleCaptureAndPredict = async () => {
     try {
@@ -46,8 +57,9 @@ export default function ScoutView({
     showLoading("Clasificando muestra con BioCLIP 2.5...");
 
     const formData = new FormData();
-    formData.append("file", imageBlob, "muestra_gulupa.jpg");
+    formData.append("file", imageBlob, `muestra_${selectedProfile}.jpg`);
     formData.append("temperature_c", (parseFloat(temperature) || 20.0).toString());
+    formData.append("profile", selectedProfile);
     formData.append("crop", "gulupa");
 
     try {
@@ -85,15 +97,37 @@ export default function ScoutView({
     <section className="tab-content" style={{ display: "block" }}>
       <div className="page-heading">
         <h2>Inspección de campo</h2>
-        <p>Toma una foto de la hoja, flor o fruto y la API identificará la fase del trips.</p>
+        <p>
+          Toma una foto de la hoja, flor o fruto y la API identificará el objetivo
+          seleccionado{activeProfile ? `: ${activeProfile.name.toLowerCase()}` : ""}.
+        </p>
       </div>
 
       <div className="env-bar">
         <div className="env-title">
-          <span>Temperatura del invernadero</span>
-          <span className="crop-pill">Cultivo: Gulupa</span>
+          <span>Perfil de detección</span>
+          <span className="crop-pill">
+            Cultivo: {activeProfile?.crop === "gulupa" ? "Gulupa" : activeProfile?.crop || "Gulupa"}
+          </span>
         </div>
         <div className="env-controls">
+          <div className="stage-select-row">
+            <label htmlFor="profileSelect">Perfil</label>
+            <select
+              id="profileSelect"
+              value={selectedProfile}
+              onChange={(e) => onProfileChange && onProfileChange(e.target.value)}
+            >
+              {profiles.length === 0 && <option value="trips">Trips</option>}
+              {profiles.map((profile) => (
+                <option key={profile.key} value={profile.key}>
+                  {profile.name}
+                  {profile.experimental ? " (experimental)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div
             className="temp-input-wrapper"
             title="Temperatura leída de tu estación o ingresada manualmente"
@@ -112,6 +146,15 @@ export default function ScoutView({
           </div>
         </div>
       </div>
+
+      {activeProfile?.description && (
+        <p className="card-desc" style={{ marginTop: -8, marginBottom: 16 }}>
+          {activeProfile.description}
+          {activeProfile.experimental
+            ? " Perfil experimental: calíbralo con fotos reales de la galería."
+            : ""}
+        </p>
+      )}
 
       <div className="camera-card">
         <div className="viewport-container">
@@ -140,7 +183,7 @@ export default function ScoutView({
           {!camera.previewSrc && (
             <div className="crosshair-overlay" style={{ display: "flex" }}>
               <div className="macro-target"></div>
-              <div className="target-hint">Centra el trips, la flor o el fruto</div>
+              <div className="target-hint">Centra el insecto, la lesión o el fruto</div>
             </div>
           )}
         </div>

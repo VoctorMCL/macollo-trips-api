@@ -48,8 +48,8 @@ export default function LoginScreen({ onLoginSuccess }) {
         <div className="login-brand">
           <div className="logo-badge">🌿</div>
           <div>
-            <h1>Macollo Trips</h1>
-            <p>Monitoreo fitosanitario de gulupa</p>
+            <h1>Macollo Visión</h1>
+            <p>Monitoreo fitosanitario inteligente</p>
           </div>
         </div>
 

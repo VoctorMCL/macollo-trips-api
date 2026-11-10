@@ -1,6 +1,52 @@
-# 📝 Registro de Cambios (Changelog) — Trips BioCLIP 2.5 API
+# 📝 Registro de Cambios (Changelog) — Macollo Visión Fitosanitaria API
 
 Todas las modificaciones notables de este proyecto se documentan en este archivo según las pautas de [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y siguiendo [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
+
+---
+
+## [Sin publicar] — 2026-11-10
+
+### 📚 Documentación
+- **Guía de Cloudflare Tunnel** (`docs/CLOUDFLARE-TUNNEL.md`): publicación temporal por HTTPS sin abrir puertos, túnel rápido, dominio fijo, CORS, API keys y consumo desde una página externa.
+- **Documentación alineada con la API 2.x**: títulos del servicio, respuesta real de `/api/health`, contrato `profile`/`crop`/`detection`, galería por `label`, 23 pruebas y los tres perfiles (`trips`, `moscas`, `aranas_rojas`) en `AUTH`, `DEPLOYMENT`, `ENDPOINTS`, `DATA-DICTIONARY`, `ARCHITECTURE`, `SEQUENCE_DIAGRAMS`, `USER_MANUAL`, `TROUBLESHOOTING`, `CONTRIBUTING`, `TESTING`, `EXTENDING`, `AGRONOMY-MIP`, `README` y `CAMERA_ML_MODULE`.
+- **`GUIA_CONEXION_WEB.md` y `client_example.js`**: ejemplos de integración genéricos por perfil y autenticación con `X-API-Key`.
+
+---
+
+## [2.0.0] — 2026-11-05
+
+### 🧩 Motor fitosanitario extensible (nuevos perfiles)
+- **Catálogo declarativo** en `backend/app/domain/catalog.py`: perfiles, objetivos, estadios y etiquetas de galería. Añadir una plaga nueva ya no requiere modificar el motor de ML.
+- **Perfiles incluidos**: `trips` (estable), `moscas` (Moscas de la Fruta, estable) y `aranas_rojas` (Arañas Rojas, estable).
+- **Contrato genérico 2.x** en `/api/predict`: `profile`, `crop` y `detection` (objetivo, categoría, confianza, incertidumbre y scores). Se conservan todos los campos 1.x (`is_thrips`, `thrips_confidence`, `detected_target`, `detected_stage`, etc.).
+- **Routers FastAPI** separados: `prediction`, `catalog`, `gallery`, `auth` y `health`.
+- **Nuevos endpoints**: `GET /api/catalog`, `GET /api/profiles`, `GET /api/profiles/{key}`, `GET /api/handbook`, `GET /api/gallery/labels`.
+
+### 🧠 Mejoras del pipeline ML
+- **Ensamble de prompts** por clase (`prompt_bank.py`): promedia embeddings normalizados de varias descripciones para prototipos textuales más estables.
+- **Votación suave de galería** y refuerzo acotado de confianza (`GALLERY_MAX_BOOST`).
+- **Margen de decisión e incertidumbre** (`min_margin`, `detection.is_uncertain`).
+- **Test-time augmentation opcional** (`use_tta`, `ENABLE_TTA`).
+- **Índice de galería atómico** con firma de archivos (`size` + `mtime_ns`) y detección de índice desactualizado (`gallery.is_stale`).
+- **k-NN filtrado por perfil** para evitar contaminación entre trips, moscas de la fruta y arañas rojas.
+
+### 🌿 Agronomía
+- **Proveedores por perfil** (`agronomy/registry.py`): `gulupa_trips`, `fruit_flies`, `red_spider_mites`.
+- **Ciclo y MIP de mosca de la fruta** (`flies.py`) y **de araña roja** (`mites.py`).
+
+### 🔐 Robustez
+- **Validación centralizada de subidas** (`services/images.py`): tipo MIME, tamaño máximo y corrección de orientación EXIF.
+- **Ficha genérica** `/api/handbook?profile=...&temperature_c=...` y compatibilidad con `/api/gulupa-handbook`.
+
+### 🖥️ Interfaz web
+- Selector de perfil en captura, galería y catálogo.
+- Tarjeta de diagnóstico genérica con categoría, incertidumbre y plan de acción por perfil.
+- Galería por perfil/objetivo/estadio con subida dirigida por `label`.
+
+### 🧪 Pruebas y documentación
+- **23 pruebas automatizadas** (16 históricas + 7 de catálogo/API).
+- Nueva guía [`docs/EXTENDING.md`](./EXTENDING.md) para añadir objetivos y perfiles.
+- Documentación de endpoints actualizada con el parámetro `profile`.
 
 ---
 

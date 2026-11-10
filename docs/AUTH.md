@@ -1,4 +1,4 @@
-# 🔐 Autenticación & Seguridad — Trips BioCLIP 2.5 API
+# 🔐 Autenticación & Seguridad — Macollo Visión Fitosanitaria API
 
 Este documento detalla la arquitectura de seguridad, la emisión y validación de tokens criptográficos, el almacenamiento de claves API y las directrices de endurecimiento para la operación del microservicio.
 
@@ -22,6 +22,9 @@ Para evitar vulnerabilidades de inyección, accesos no autorizados en invernader
 | Endpoint | Método | Acceso Requerido | Mecanismo |
 | :--- | :---: | :--- | :--- |
 | `/api/health` | `GET` | **Público** | Sin autenticación (monitoreo / health checks) |
+| `/api/catalog` | `GET` | **Público** | Catálogo completo de perfiles, objetivos y estadios |
+| `/api/profiles` | `GET` | **Público** | Lista de perfiles de detección disponibles |
+| `/api/profiles/{profile_key}` | `GET` | **Público** | Detalle de un perfil |
 | `/api/auth/login` | `POST` | **Público** | Valida `ADMIN_USERNAME` y `ADMIN_PASSWORD` |
 | `/api/auth/logout` | `POST` | **Público** | Borra cookie de sesión |
 | `/api/auth/me` | `GET` | **Sesión requerida** | Cookie `macollo_session` válida |
@@ -30,10 +33,12 @@ Para evitar vulnerabilidades de inyección, accesos no autorizados en invernader
 | `/api/keys/{key_id}` | `DELETE` | **Sesión requerida** | Solo administradores del panel |
 | `/api/gallery` | `GET` | **Sesión requerida** | Solo administradores del panel |
 | `/api/gallery/items` | `GET` | **Sesión requerida** | Solo administradores del panel |
+| `/api/gallery/labels` | `GET` | **Sesión requerida** | Carpetas válidas agrupadas por perfil (`?profile=`) |
 | `/api/gallery/upload` | `POST` | **Sesión requerida** | Solo administradores del panel |
 | `/api/gallery/reindex`| `POST` | **Sesión requerida** | Solo administradores del panel |
 | `/api/predict` | `POST` | **API Key o Sesión** | Encabezado `X-API-Key` o Cookie de sesión |
-| `/api/gulupa-handbook`| `GET` | **API Key o Sesión** | Encabezado `X-API-Key` o Cookie de sesión |
+| `/api/handbook` | `GET` | **API Key o Sesión** | Ficha agronómica genérica por `profile` y `temperature_c` |
+| `/api/gulupa-handbook`| `GET` | **API Key o Sesión** | Alias histórico de `/api/handbook` para trips |
 
 ---
 
@@ -135,3 +140,7 @@ export CORS_ORIGINS="https://macollo.agro.co,https://tu-dominio.vercel.app"
 
 > [!IMPORTANT]
 > Los navegadores modernos prohíben el acceso a la cámara (`navigator.mediaDevices.getUserMedia`) en conexiones HTTP inseguras no locales. Es mandatorio desplegar la API detrás de un proxy inverso con **HTTPS/TLS** (ver [Despliegue](./DEPLOYMENT.md)).
+>
+> Para una prueba de prototipo con HTTPS sin abrir puertos, usa la guía
+> [Cloudflare Tunnel](./CLOUDFLARE-TUNNEL.md). Recuerda que la página externa debe
+> autenticarse con una **API key** (`X-API-Key`), nunca con las credenciales del panel.

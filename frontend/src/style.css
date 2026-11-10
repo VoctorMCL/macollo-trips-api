@@ -574,6 +574,61 @@ main {
     margin-top: 3px;
 }
 
+.category-chip {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    background: var(--bg-soft);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+
+.category-chip.category-pest {
+    background: var(--danger-soft);
+    color: var(--danger);
+    border-color: #f2c3be;
+}
+
+.category-chip.category-disease {
+    background: #f3e8fd;
+    color: #6b21a8;
+    border-color: #ddc8f5;
+}
+
+.category-chip.category-damage {
+    background: var(--warning-soft);
+    color: var(--warning);
+    border-color: #efd8a8;
+}
+
+.category-chip.category-healthy {
+    background: var(--primary-soft);
+    color: var(--primary-dark);
+    border-color: var(--primary-border);
+}
+
+.category-chip.category-other {
+    background: var(--bg-soft);
+    color: var(--text-muted);
+    border-color: var(--border);
+}
+
+.uncertain-banner {
+    background: var(--warning-soft);
+    color: var(--warning);
+    border: 1px solid #efd8a8;
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
 .confidence-chip {
     background: var(--bg-card);
     padding: 8px 14px;

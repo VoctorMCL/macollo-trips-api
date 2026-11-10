@@ -1,6 +1,13 @@
-# 📸 Módulo de Detección de Trips con Cámara y Machine Learning
+# 📸 Módulo de Detección con Cámara y Machine Learning
 
-> Documentación técnica del sistema de visión artificial BioCLIP 2.5 para identificación de Trips (*Thysanoptera: Thripidae*) en cultivos de Gulupa (*Passiflora edulis*).
+> Documentación técnica del sistema de visión artificial BioCLIP 2.5 para identificación fitosanitaria en cultivos de Gulupa (*Passiflora edulis*).
+
+> [!NOTE]
+> **Documento histórico.** Este archivo describe el módulo original centrado en
+> trips y se conserva por contexto. La referencia vigente y completa está en
+> [Arquitectura](./ARCHITECTURE.md), [Endpoints](./ENDPOINTS.md) y
+> [Extender el Catálogo](./EXTENDING.md). La versión 2.x es genérica por perfil:
+> `trips`, `moscas` y `aranas_rojas`.
 
 ---
 
@@ -45,41 +52,48 @@ Navegador (celular)                   API FastAPI + BioCLIP 2.5
 ### 2.1 Estructura de Archivos
 
 ```text
-Macollo/
+macollo-trips-api/
 ├── backend/
-│   ├── __init__.py
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── config.py                  # Configuración: umbrales, rutas, modelo
-│   │   ├── main.py                    # API FastAPI (endpoints REST + CORS)
-│   │   ├── ml/
-│   │   │   ├── __init__.py
-│   │   │   ├── bioclip_engine.py      # Motor de inferencia BioCLIP 2.5
-│   │   │   ├── taxonomy_prompts.py    # Prompts taxonómicos para zero-shot
-│   │   │   └── gallery_index.py       # Galería de referencia (Few-Shot k-NN)
-│   │   ├── agronomy/
-│   │   │   ├── __init__.py
-│   │   │   ├── gulupa_cycle.py        # Modelo térmico (grados-día)
-│   │   │   └── gulupa_mip.py          # Recomendaciones MIP
-│   │   └── schemas/
-│   │       ├── __init__.py
-│   │       └── prediction.py          # Modelos Pydantic (request/response)
+│   └── app/
+│       ├── config.py                  # Configuración: umbrales, rutas, modelo
+│       ├── main.py                    # API FastAPI (routers + CORS + estáticos)
+│       ├── auth.py                    # Login, sesiones y API keys
+│       ├── api/
+│       │   ├── auth_routes.py         # /api/auth/*, /api/keys/*
+│       │   ├── health_routes.py       # /api/health
+│       │   ├── catalog_routes.py      # /api/catalog, /profiles, /handbook
+│       │   ├── gallery_routes.py      # /api/gallery/*
+│       │   └── prediction_routes.py   # /api/predict
+│       ├── domain/
+│       │   └── catalog.py             # Perfiles, objetivos, estadios y galería
+│       ├── ml/
+│       │   ├── bioclip_engine.py      # Motor de inferencia BioCLIP 2.5
+│       │   ├── prompt_bank.py         # Ensamble de prompts por clase
+│       │   ├── taxonomy_prompts.py    # Compatibilidad de prompts
+│       │   └── gallery_index.py       # Galería de referencia (Few-Shot k-NN)
+│       ├── agronomy/
+│       │   ├── registry.py            # Despacho por perfil
+│       │   ├── gulupa_cycle.py        # Modelo térmico de trips (grados-día)
+│       │   ├── gulupa_mip.py          # Recomendaciones MIP de trips
+│       │   ├── flies.py               # Ciclo y MIP de mosca de la fruta
+│       │   └── mites.py               # Ciclo y MIP de araña roja
+│       ├── services/
+│       │   └── images.py              # Validación y orientación EXIF
+│       └── schemas/
+│           ├── __init__.py
+│           └── prediction.py          # Modelos Pydantic (request/response)
 │   └── tests/
-│       ├── __init__.py
-│       ├── test_api.py                # Tests de endpoints HTTP
-│       └── test_ml_pipeline.py        # Tests de taxonomía, ciclo y galería
-├── frontend/                          # Web App demo (NO es parte de Proyect_invernadero)
-│   ├── index.html
-│   ├── css/style.css
-│   └── js/ (app.js, camera.js, gallery.js)
+│       ├── test_api.py                # Endpoints HTTP y seguridad
+│       ├── test_ml_pipeline.py        # Agronomía, prompts y criptografía
+│       └── test_catalog.py            # Catálogo y API genérica
+├── frontend/                          # Web App React + Vite (servida por FastAPI)
+│   ├── src/components/
+│   └── dist/
 ├── data/
-│   └── reference_gallery/             # Fotos reales del usuario por estadio
-│       ├── adulto/
-│       ├── huevo/
-│       ├── larva/                     # Larva = Ninfa (una sola fase)
-│       ├── pupa/
-│       ├── adulto/
-│       └── dano_gulupa/
+│   └── reference_gallery/
+│       ├── huevo/ ... dano_gulupa/    # Carpetas históricas de trips
+│       ├── moscas/mosca_frutal_anastrepha/...
+│       └── aranas_rojas/arana_roja_tetranychus/...
 ├── client_example.js                  # Snippet de integración para tu web
 ├── requirements.txt                   # Dependencias Python
 ├── run_server.sh                      # Script de arranque
@@ -90,14 +104,15 @@ Macollo/
 
 | Componente | Archivo | Responsabilidad |
 |---|---|---|
-| **API REST** | `main.py` | Endpoints HTTP, CORS, validación de archivos |
+| **API REST** | `api/*.py` | Routers HTTP, CORS, validación de archivos |
 | **Autenticación** | `auth.py` | Login de panel, sesiones firmadas y API keys |
-| **Motor BioCLIP** | `bioclip_engine.py` | Carga del modelo, extracción de embeddings, pipeline de inferencia completo |
-| **Prompts Taxonómicos** | `taxonomy_prompts.py` | Descripciones textuales de trips y organismos confusores para zero-shot |
-| **Galería k-NN** | `gallery_index.py` | Indexación y búsqueda de fotos de referencia del usuario |
-| **Ciclo Térmico** | `gulupa_cycle.py` | Cálculo de duración de cada estadio según temperatura (grados-día) |
-| **MIP Gulupa** | `gulupa_mip.py` | Recomendaciones fitosanitarias por estadio detectado |
-| **Schemas** | `prediction.py` | Modelos Pydantic para serialización/validación del JSON |
+| **Catálogo** | `domain/catalog.py` | Perfiles, objetivos, estadios y etiquetas de galería |
+| **Motor BioCLIP** | `ml/bioclip_engine.py` | Carga del modelo, embeddings y pipeline de inferencia |
+| **Prompts** | `ml/prompt_bank.py` | Ensamble de descripciones por objetivo y estadio |
+| **Galería k-NN** | `ml/gallery_index.py` | Indexación y búsqueda filtrada por perfil |
+| **Agronomía** | `agronomy/registry.py` | Despacho a `gulupa_trips`, `fruit_flies` o `red_spider_mites` |
+| **Ciclo y MIP** | `agronomy/gulupa_cycle.py`, `gulupa_mip.py`, `flies.py`, `mites.py` | Modelo térmico y recomendaciones por perfil |
+| **Schemas** | `schemas/prediction.py` | Modelos Pydantic para el JSON |
 
 ---
 
@@ -126,11 +141,20 @@ Verifica el estado del servicio.
 ```json
 {
   "status": "healthy",
+  "app_name": "Macollo Visión Fitosanitaria API",
+  "version": "2.0.0",
   "model_loaded": true,
   "model_name": "hf-hub:imageomics/bioclip-2.5-vith14",
   "device": "cpu",
+  "default_profile": "trips",
+  "profiles": [
+    {"key": "trips", "name": "Trips", "experimental": false},
+    {"key": "moscas", "name": "Moscas de la Fruta", "experimental": false},
+    {"key": "aranas_rojas", "name": "Arañas Rojas", "experimental": false}
+  ],
   "gallery_total_images": 0,
-  "gallery_is_indexed": false
+  "gallery_is_indexed": false,
+  "gallery_is_stale": false
 }
 ```
 
@@ -143,13 +167,17 @@ Requiere el encabezado `X-API-Key: mk_...` (o una sesión web válida).
 
 | Campo | Tipo | Requerido | Descripción |
 |---|---|---|---|
-| `file` | `File` | ✅ | Foto JPG/PNG/WebP tomada con la cámara |
+| `file` | `File` | ✅ | Foto JPG/PNG/WebP/BMP tomada con la cámara |
 | `temperature_c` | `float` | ❌ (default 20.0) | Temperatura del invernadero en °C |
 | `crop` | `string` | ❌ (default "gulupa") | Cultivo analizado |
+| `profile` | `string` | ❌ (default "trips") | `trips`, `moscas` o `aranas_rojas` |
+| `use_tta` | `bool` | ❌ | Test-time augmentation (más preciso, más lento) |
 
 **Respuesta** (`application/json`):
 ```json
 {
+  "profile": "trips",
+  "crop": "gulupa",
   "is_thrips": true,
   "thrips_confidence": 0.87,
   "detected_target": "Trips de las Flores (Frankliniella occidentalis / Thrips tabaci)",
@@ -183,17 +211,21 @@ Estado de la galería de referencia (conteo de fotos por estadio). Requiere sesi
 
 ### 3.4 `POST /api/gallery/upload`
 
-Sube una foto de referencia. Campos: `file` (imagen), `stage` (uno de: `huevo`, `larva`, `pupa`, `adulto`, `dano_gulupa`). Requiere sesión.
+Sube una foto de referencia. Campos: `file` (imagen) y `label` (recomendado, ver `GET /api/gallery/labels`) o `profile` + `target` + `stage`. Requiere sesión.
 
-### 3.5 `POST /api/gallery/reindex`
+### 3.5 `GET /api/gallery/labels`
+
+Lista las carpetas válidas agrupadas por perfil. Requiere sesión. Acepta `?profile=trips|moscas|aranas_rojas`.
+
+### 3.6 `POST /api/gallery/reindex`
 
 Fuerza la reindexación de todas las fotos en `data/reference_gallery/`. Requiere sesión.
 
-### 3.6 `GET /api/gulupa-handbook`
+### 3.7 `GET /api/handbook`
 
-Manual técnico de trips en Gulupa. Parámetro opcional: `temperature_c`.
+Ficha técnica genérica por perfil. Parámetros opcionales: `profile` y `temperature_c`. El alias histórico `GET /api/gulupa-handbook` se conserva para trips.
 
-### 3.7 Documentación Interactiva (Swagger)
+### 3.8 Documentación Interactiva (Swagger)
 
 Al correr el servidor, abre `http://localhost:8000/docs` para probar todos los endpoints visualmente.
 
@@ -243,21 +275,18 @@ Foto del celular
 
 ### 4.1 Paso 3: Discriminación Zero-Shot (Trips vs No-Trips)
 
-BioCLIP compara el embedding de la imagen contra **14 prompts taxonómicos** precomputados:
+BioCLIP compara el embedding de la imagen contra los prototipos de texto del **perfil seleccionado**. El motor ya no usa una lista fija de 14 prompts: cada perfil define sus objetivos y estadios en `domain/catalog.py`, y `prompt_bank.py` promedia los embeddings de sus descripciones.
 
-**Clases positivas (5):**
+Para el perfil `trips`, las clases positivas son:
 - `Frankliniella occidentalis` (trips de las flores)
 - `Frankliniella panamensis` (trips de pasifloras)
 - `Thrips tabaci` (trips de la cebolla)
 - Trips general
 - Daño de trips en fruto de Gulupa
 
-**Clases negativas (9):**
-- Mosca blanca, pulgón, araña roja, ácaro plano, mosca minadora
-- Hoja sana de Gulupa, flor sana de Gulupa, tallo/zarcillo
-- Manchas de polvo/caldo
+Las clases negativas incluyen mosca blanca, pulgón, araña roja, ácaro plano, mosca minadora, hoja/flor sana, tallo/zarcillo y manchas de polvo/caldo.
 
-La probabilidad acumulada de las 5 clases positivas debe superar el **umbral de 0.60** para confirmar trips.
+La probabilidad acumulada de las clases positivas debe superar el **umbral del perfil** (0.60 por defecto) para confirmar el objetivo.
 
 ### 4.2 Paso 4: Clasificación de Estadio
 
@@ -417,14 +446,12 @@ source .venv/bin/activate
 python -m unittest discover -s backend/tests -v
 ```
 
-**7 tests cubiertos:**
-- `test_health_check`: Endpoint `/api/health` responde 200.
-- `test_gallery_endpoints`: Galería responde estadísticas y listado.
-- `test_gulupa_handbook_endpoint`: Manual técnico incluye datos de Gulupa.
-- `test_taxonomy_prompts_integrity`: Todos los prompts existen y están bien formados.
-- `test_thermal_cycle_calculation`: Grados-día a diferentes temperaturas dan resultados coherentes.
-- `test_mip_recommendations`: Recomendaciones incluyen las 4 categorías de MIP.
-- `test_gallery_manager_initialization`: Galería se inicializa con directorios correctos.
+**23 tests cubiertos:**
+- Endpoints HTTP, autenticación, API keys y validación de subidas.
+- Catálogo extensible, perfiles y etiquetas de galería.
+- Integridad de prompts, ciclo térmico y recomendaciones MIP por perfil.
+- Inicialización y reindexación de la galería.
+- Resistencia a manipulación de tokens de sesión.
 
 ---
 
@@ -452,10 +479,11 @@ Archivo: `backend/app/config.py`
 |---|---|---|
 | `BIOCLIP_MODEL_NAME` | `hf-hub:imageomics/bioclip-2.5-vith14` | Modelo principal (ViT-H/14) |
 | `FALLBACK_MODEL_NAME` | `hf-hub:imageomics/bioclip` | Modelo alternativo (ViT-B/16) si el principal falla |
-| `CONFIDENCE_THRESHOLD` | `0.60` | Umbral mínimo para confirmar trips |
+| `CONFIDENCE_THRESHOLD` | `0.60` | Umbral mínimo para confirmar el objetivo |
 | `DEFAULT_TEMPERATURE_C` | `20.0` | Temperatura por defecto si no se envía |
-| `KNN_TOP_K` | `3` | Vecinos más cercanos en galería |
-| `STAGES` | 4 fases + daño | `huevo`, `larva`, `pupa`, `adulto`, `dano_gulupa` |
+| `DEFAULT_DETECTION_PROFILE` | `trips` | Perfil usado cuando no se envía `profile` |
+| `KNN_TOP_K` | `5` | Vecinos más cercanos en galería |
+| `STAGES` | 4 fases + daño | Carpetas históricas de trips: `huevo`, `larva`, `pupa`, `adulto`, `dano_gulupa` |
 
 ---
 
@@ -472,7 +500,7 @@ Archivo: `backend/app/config.py`
 
 ```ini
 [Unit]
-Description=Gulupa Trips BioCLIP API
+Description=Macollo Visión Fitosanitaria API
 After=network-online.target
 
 [Service]
@@ -526,5 +554,6 @@ app.add_middleware(
 | Error CORS | Origen no permitido | Revisar `allow_origins` en `main.py` |
 | `Mixed Content` | Web HTTPS → API HTTP | Publicar API con HTTPS (Caddy/Nginx) |
 | Siempre dice "trips" | Umbral bajo o pocas fotos de referencia | Subir `CONFIDENCE_THRESHOLD` y agregar fotos reales |
+| El resultado no corresponde al perfil | No se envió `profile` o la galería está en otra carpeta | Enviar `profile` y subir fotos con el `label` correcto |
 | Lento (~2s/imagen) | CPU sin GPU | Normal; usar GPU para <200ms |
 | Se cae por memoria | Múltiples workers | Usar `--workers 1` y ≥8 GB RAM |

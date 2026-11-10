@@ -1,6 +1,6 @@
-# 🛠️ Resolución de Problemas (Troubleshooting) — Trips BioCLIP 2.5 API
+# 🛠️ Resolución de Problemas (Troubleshooting) — Macollo Visión Fitosanitaria API
 
-Este documento recopila diagnósticos y soluciones paso a paso para los incidentes más frecuentes durante el desarrollo, despliegue y operación en campo de **Macollo Trips API**.
+Este documento recopila diagnósticos y soluciones paso a paso para los incidentes más frecuentes durante el desarrollo, despliegue y operación en campo de **Macollo Visión Fitosanitaria API** (`trips`, `moscas` y `aranas_rojas`).
 
 ---
 
@@ -15,6 +15,7 @@ Este documento recopila diagnósticos y soluciones paso a paso para los incident
 | Error de conexión al descargar pesos de Hugging Face | Bloqueo de red hacia `huggingface.co` o corte intermitente. | Descargar previamente los pesos en `~/.cache/huggingface`. |
 | Las fotos copiadas a `data/reference_gallery/` no influyen | Falta reconstruir el índice de tensores en memoria. | Ejecutar `POST /api/gallery/reindex` o presionar "Reindexar" en la web. |
 | Error de CORS (`blocked by CORS policy`) | Origen de la petición no contemplado en `CORS_ORIGINS`. | Configurar `export CORS_ORIGINS="*"` o agregar el dominio exacto. |
+| La predicción no corresponde al perfil esperado | No se envió `profile` o se usó una clave de galería de otro perfil. | Enviar `profile=trips`, `moscas` o `aranas_rojas` y subir fotos a la carpeta correcta. |
 
 ---
 
@@ -31,7 +32,8 @@ Por especificación del estándar W3C, los navegadores modernos (Google Chrome, 
 ### Solución:
 1. **En Producción**: Configurar un proxy inverso con certificado SSL (ver [Guía de Despliegue](./DEPLOYMENT.md)).
 2. **En Desarrollo / Pruebas de Campo Temporales**:
-   - Puedes usar una herramienta de túnel seguro como [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) o `ngrok`:
+   - Usa la guía dedicada [Cloudflare Tunnel para prototipos](./CLOUDFLARE-TUNNEL.md), que incluye instalación, URL HTTPS, CORS y pruebas desde otra página.
+   - Alternativa rápida con `ngrok`:
      ```bash
      ngrok http 8000
      ```
@@ -107,16 +109,20 @@ Si el servidor del invernadero tiene acceso a Internet restringido:
 ## 5. Fotos Locales de Galería No Tomadas en Cuenta
 
 ### Síntoma:
-Se copiaron fotos a `data/reference_gallery/larva/`, pero el campo `exemplar_matches` en la predicción sigue saliendo vacío (`[]`).
+Se copiaron fotos a `data/reference_gallery/larva/` (o a `moscas/...`, `aranas_rojas/...`), pero el campo `exemplar_matches` en la predicción sigue saliendo vacío (`[]`).
 
 ### Causa:
-Copiar archivos en disco no actualiza automáticamente la matriz de tensores en memoria.
+Copiar archivos en disco no actualiza automáticamente la matriz de tensores en memoria. Además, la búsqueda k-NN está filtrada por perfil: una foto de `moscas` no aparece en una predicción de `trips`.
 
 ### Solución:
 Entra al panel web, abre la pestaña **Galería** y presiona el botón **"Reindexar Fotos Locales"**, o ejecuta desde terminal:
 ```bash
 curl -X POST "http://localhost:8000/api/gallery/reindex" \
   -H "Cookie: macollo_session=<tu_cookie_de_admin>"
+```
+Verifica las carpetas válidas con:
+```bash
+curl -b cookies.txt "http://localhost:8000/api/gallery/labels"
 ```
 El log del servidor confirmará:
 ```text

@@ -1,6 +1,6 @@
-# 🧠 Motor BioCLIP 2.5 & Visión Artificial Entomológica
+# 🧠 Motor BioCLIP 2.5 & Visión Artificial Fitosanitaria
 
-Este documento detalla la fundamentación de Machine Learning, el diseño de prompts taxonómicos, la arquitectura de tensores y la matemática del ensamble Few-Shot implementados en **Macollo Trips API**.
+Este documento detalla la fundamentación de Machine Learning, el diseño de prompts de texto, la arquitectura de tensores y la matemática del ensamble Few-Shot implementados en **Macollo Visión Fitosanitaria API**. El motor es genérico por perfil: el mismo pipeline clasifica objetivos de trips, moscas de la fruta o arañas rojas.
 
 ---
 

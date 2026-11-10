@@ -1,7 +1,10 @@
 import os
 from pathlib import Path
 from typing import List
+
 from pydantic import BaseModel
+
+from backend.app.domain.catalog import DEFAULT_PROFILE_KEY, TRIPS_STAGES
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / "data"
@@ -28,27 +31,33 @@ BIOCLIP_MODEL_NAME: str = "hf-hub:imageomics/bioclip-2.5-vith14"
 FALLBACK_MODEL_NAME: str = "hf-hub:imageomics/bioclip"  # ViT-B/16 fallback if needed
 
 DEFAULT_TEMPERATURE_C: float = 20.0  # Temperatura típica de cultivo de Gulupa (18°C - 24°C)
-CONFIDENCE_THRESHOLD: float = 0.60   # Umbral base de confirmación de trips
-KNN_TOP_K: int = 3                 # K vecinos más cercanos para el análisis de galería
+DEFAULT_PROFILE: str = os.getenv("DEFAULT_DETECTION_PROFILE", DEFAULT_PROFILE_KEY)
 
-# Fases biológicas reales del ciclo de vida de los Trips.
-# Nota: "larva" y "ninfa" son el mismo estadio (solo existe UNA fase de ninfa).
+# ML: umbrales y calibración
+CONFIDENCE_THRESHOLD: float = float(os.getenv("CONFIDENCE_THRESHOLD", "0.60"))
+KNN_TOP_K: int = int(os.getenv("KNN_TOP_K", "5"))
+GALLERY_MIN_SIMILARITY: float = float(os.getenv("GALLERY_MIN_SIMILARITY", "0.62"))
+GALLERY_MAX_BOOST: float = float(os.getenv("GALLERY_MAX_BOOST", "0.15"))
+ENABLE_TTA: bool = os.getenv("ENABLE_TTA", "false").lower() == "true"
+
+# Límites de subida (bytes). 15 MB por defecto.
+MAX_UPLOAD_BYTES: int = int(os.getenv("MAX_UPLOAD_BYTES", str(15 * 1024 * 1024)))
+
+# Fases biológicas reales del ciclo de vida de los Trips (compatibilidad 1.x).
 BIOLOGICAL_STAGES: List[str] = [
-    "huevo",
-    "larva",
-    "pupa",
-    "adulto"
+    stage_key for stage_key in TRIPS_STAGES if stage_key != "dano_gulupa"
 ]
 
-# Subdirectorios de la galería: las 4 fases biológicas + manifestación de daño
-# (el daño no es una fase del insecto, es un síntoma para monitoreo fitosanitario).
-STAGES: List[str] = BIOLOGICAL_STAGES + ["dano_gulupa"]
+# Subdirectorios históricos de la galería: 4 fases + manifestación de daño.
+STAGES: List[str] = list(TRIPS_STAGES.keys())
+
 
 class Settings(BaseModel):
-    app_name: str = "Gulupa Trips BioCLIP 2.5 API"
-    version: str = "1.0.0"
+    app_name: str = "Macollo Visión Fitosanitaria API"
+    version: str = "2.0.0"
     debug: bool = False
     host: str = "0.0.0.0"
     port: int = 8000
+
 
 settings = Settings()

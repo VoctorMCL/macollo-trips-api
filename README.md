@@ -1,31 +1,42 @@
-# 🌿 Trips BioCLIP 2.5 API & Web App para Gulupa (*Passiflora edulis*)
+# 🌿 Macollo Visión Fitosanitaria API & Web App para Gulupa (*Passiflora edulis*)
 
-Sistema de visión artificial y machine learning basado en **BioCLIP 2.5 (`imageomics/bioclip-2.5-vith14`)**, diseñado para el monitoreo fitosanitario y manejo agronómico de **Trips (*Thysanoptera: Thripidae*)** en invernaderos y cultivos protegidos de **Gulupa**.
+Sistema de visión artificial y machine learning basado en **BioCLIP 2.5 (`imageomics/bioclip-2.5-vith14`)** para el monitoreo fitosanitario y manejo agronómico de **Trips (*Thysanoptera: Thripidae*)**, **moscas de la fruta (*Anastrepha*)** y **arañas rojas (*Tetranychus urticae*)** en invernaderos y cultivos protegidos de **Gulupa**.
+
+> **Compatibilidad 1.x:** el perfil `trips` y sus campos (`is_thrips`, `thrips_confidence`, `detected_stage`, carpetas `huevo`/`larva`/`pupa`/`adulto`/`dano_gulupa`) siguen funcionando igual. Los perfiles `moscas` (Moscas de la Fruta) y `aranas_rojas` (Arañas Rojas) son estables y usan el mismo motor genérico.
 
 ---
 
 ## 🎯 Capacidades Principales
 
-1. **Detección y Confirmación de Trips**:
+1. **Catálogo fitosanitario extensible**:
+   - Perfiles de detección `trips`, `moscas` y `aranas_rojas`, con objetivos, estadios y umbrales declarativos.
+   - Añadir una plaga nueva solo requiere registrar datos en `backend/app/domain/catalog.py`; el motor, la API y la UI se adaptan.
+   - Guía paso a paso en [`docs/EXTENDING.md`](./docs/EXTENDING.md).
+2. **Detección y Confirmación de Trips**:
    - Clasificación contrastiva frente a plagas frecuentes en pasifloráceas: Mosca Blanca (*Bemisia tabaci*), Pulgones (*Aphis gossypii*), Arañita Roja (*Tetranychus urticae*), Ácaro Plano (*Brevipalpus*) y hojas/flores sanas.
-2. **Identificación del Estadio Biológico** (4 fases reales del ciclo):
+3. **Identificación del Estadio Biológico** (4 fases reales del ciclo):
    - **Huevo**: Ovalado y translúcido, insertado en hojas, botones florales o frutos tiernos.
    - **Larva (Ninfa)**: Único estadio larval/ninfal, sin alas, translúcido a amarillo/anaranjado. Es la fase voraz de raspado (responsable de la "roña" o "cacarizado"). **No se divide en Ninfa I y Ninfa II.**
    - **Pupa (Prepupa)**: Estadio no alimentario en reposo, refugiado en grietas, hojarasca o suelo.
    - **Adulto**: Insecto alargado con alas plumosas/franjeadas (dispersión y oviposición).
    - **Daño en Fruto / Flor** (categoría adicional de monitoreo, no es una fase): roña corchosa en frutos verdes.
-3. **Cálculo Térmico del Ciclo Biológico (Grados-Día)**:
+4. **Cálculo Térmico del Ciclo Biológico (Grados-Día)**:
    - Recibe la temperatura en tiempo real del invernadero (ej. leída desde tus APIs de **SIATA** o **Open-Meteo**).
    - Modela la duración de cada estadio y proyecta los días restantes para emergencia de adultos.
-4. **Manejo Integrado de Plagas (MIP) para Gulupa de Exportación**:
+5. **Manejo Integrado de Plagas (MIP) para Gulupa de Exportación**:
    - Medidas de control biológico (*Amblyseius swirskii*, *Orius insidiosus*, *Beauveria bassiana*, *Steinernema feltiae*).
    - Control etológico con trampas adhesivas **azules** (~460 nm).
    - Control cultural y fitosanitario.
    - Control químico/biorracional con estricta pauta de rotación **IRAC** para evitar resistencia.
-5. **Galería de Referencia (Few-Shot k-NN Vector Matching)**:
-   - Permite colocar fotos reales de trips en `data/reference_gallery/` o subirlas desde la interfaz web.
+6. **Pipeline ML mejorado**:
+   - Ensamble de múltiples prompts de texto por clase (prototipos más estables).
+   - Votación suave de la galería few-shot y refuerzo acotado de confianza.
+   - Margen de decisión, marca de incertidumbre y TTA opcional.
+   - Índice de galería atómico con firma de archivos para detectar cambios.
+7. **Galería de Referencia (Few-Shot k-NN Vector Matching)**:
+   - Permite colocar fotos reales en `data/reference_gallery/` (trips en la raíz; perfiles nuevos en `perfil/objetivo/estadio/`) o subirlas desde la interfaz web.
    - Extrae vectores de 1024 dimensiones con BioCLIP 2.5 para respaldar la predicción con memoria empírica de tu predio.
-6. **Panel privado y API keys**:
+8. **Panel privado y API keys**:
    - Login sin registro público: las credenciales del panel se definen en el servidor.
    - Sección "API y accesos" para generar y revocar claves por cliente.
    - `/api/predict` exige `X-API-Key` o una sesión web válida.
@@ -41,12 +52,14 @@ El proyecto cuenta con una biblioteca de documentación completa e indexada en e
 | [🏗️ Arquitectura del Sistema](./docs/ARCHITECTURE.md) | Diseño en capas, pipeline BioCLIP 2.5, k-NN Few-Shot y diagramas. |
 | [🔌 Referencia de Endpoints](./docs/ENDPOINTS.md) | Catálogo completo de endpoints con bodies, headers, status y curl. |
 | [🧠 Motor BioCLIP 2.5 & ML](./docs/BIOCLIP-ML.md) | Tensores 1024-d, prompts taxonómicos y formulación matemática. |
+| [🧩 Extender el Catálogo](./docs/EXTENDING.md) | Cómo añadir moscas de la fruta, arañas rojas, perfiles y proveedores agronómicos. |
 | [🌿 Manejo Agronómico MIP](./docs/AGRONOMY-MIP.md) | Grados-día ($T_0=10.5^\circ\text{C}$), roña en Gulupa y rotación IRAC. |
 | [🔐 Autenticación & Seguridad](./docs/AUTH.md) | Sesiones HMAC-SHA256, API keys con hash SHA-256 y endurecimiento. |
 | [📖 Diccionario de Datos](./docs/DATA-DICTIONARY.md) | Modelos Pydantic, respuestas JSON y esquemas en disco. |
 | [🚀 Guía de Despliegue](./docs/DEPLOYMENT.md) | Docker, systemd, Nginx/Caddy con HTTPS (obligatorio para cámara WebRTC). |
+| [🌐 Cloudflare Tunnel para prototipos](./docs/CLOUDFLARE-TUNNEL.md) | Publicar la API por HTTPS sin abrir puertos y consumirla desde otra página. |
 | [📊 Diagramas de Secuencia](./docs/SEQUENCE_DIAGRAMS.md) | Flujos temporales en Mermaid (predicción, reindexación, login). |
-| [🧪 Aseguramiento de Calidad (Testing)](./docs/TESTING.md) | Suite de 16 pruebas automatizadas, cobertura y protocolo de campo. |
+| [🧪 Aseguramiento de Calidad (Testing)](./docs/TESTING.md) | Suite de 23 pruebas automatizadas, cobertura y protocolo de campo. |
 | [🛠️ Resolución de Problemas](./docs/TROUBLESHOOTING.md) | Soluciones para cámara bloqueada, memoria RAM (OOM), hilos y CORS. |
 | [📱 Manual de Usuario](./docs/USER_MANUAL.md) | Guía práctica para agrónomos y operarios de campo en el invernadero. |
 | [🤝 Guía de Contribución](./docs/CONTRIBUTING.md) | Estándares PEP 8, typing, adición de reglas MIP y flujo Git. |
@@ -62,19 +75,34 @@ El proyecto cuenta con una biblioteca de documentación completa e indexada en e
 │   ├── app/
 │   │   ├── config.py                # Umbrales, rutas, CORS y configuración
 │   │   ├── auth.py                  # Login, sesiones firmadas y API keys
-│   │   ├── main.py                  # API FastAPI (CORS, REST, Swagger /docs)
+│   │   ├── main.py                  # Composición FastAPI y montaje de routers
+│   │   ├── domain/
+│   │   │   └── catalog.py           # Catálogo extensible: perfiles, objetivos, estadios
+│   │   ├── api/
+│   │   │   ├── prediction_routes.py # POST /api/predict genérico por perfil
+│   │   │   ├── catalog_routes.py    # Catálogo, perfiles y fichas técnicas
+│   │   │   ├── gallery_routes.py    # Galería few-shot por perfil/objetivo/estadio
+│   │   │   ├── auth_routes.py       # Login, logout y API keys
+│   │   │   └── health_routes.py     # Estado del modelo y la galería
+│   │   ├── services/
+│   │   │   └── images.py            # Validación de tipo, tamaño y EXIF de subidas
 │   │   ├── ml/
-│   │   │   ├── bioclip_engine.py    # Inferencia BioCLIP 2.5, embeddings y ensamble
-│   │   │   ├── taxonomy_prompts.py  # Jerarquías biológicas de trips y pasifloras
-│   │   │   └── gallery_index.py     # Gestor de galería Few-Shot y similitud de cosenos
+│   │   │   ├── bioclip_engine.py    # Motor de inferencia genérico por perfil
+│   │   │   ├── prompt_bank.py       # Ensamble de prompts y prototipos de texto
+│   │   │   ├── taxonomy_prompts.py  # Reexportación compatible de prompts de trips
+│   │   │   └── gallery_index.py     # Índice few-shot atómico y k-NN
 │   │   ├── agronomy/
-│   │   │   ├── gulupa_cycle.py      # Modelo térmico de desarrollo (grados-día)
-│   │   │   └── gulupa_mip.py        # Recomendaciones de MIP para Gulupa exportación
+│   │   │   ├── registry.py          # Despacho de proveedores agronómicos
+│   │   │   ├── gulupa_cycle.py      # Modelo térmico de trips (grados-día)
+│   │   │   ├── gulupa_mip.py        # Recomendaciones MIP de trips
+│   │   │   ├── flies.py             # Ciclo y MIP de mosca de la fruta
+│   │   │   └── mites.py             # Ciclo y MIP de araña roja
 │   │   └── schemas/
 │   │       ├── auth.py              # Modelos Pydantic de autenticación y API keys
-│   │       └── prediction.py        # Modelos Pydantic de predicción y galería
+│   │       └── prediction.py        # Modelos genéricos de predicción y galería
 │   └── tests/
 │       ├── test_api.py              # Pruebas de endpoints HTTP, seguridad y subidas
+│       ├── test_catalog.py          # Pruebas del catálogo extensible y perfiles
 │       └── test_ml_pipeline.py      # Pruebas de taxonomía, ciclo, MIP y criptografía
 ├── docs/                            # Biblioteca oficial de documentación
 │   ├── README.md                    # Índice maestro de la documentación
@@ -85,7 +113,9 @@ El proyecto cuenta con una biblioteca de documentación completa e indexada en e
 │   ├── AUTH.md                      # Seguridad, sesiones firmadas y API keys
 │   ├── DATA-DICTIONARY.md           # Modelos Pydantic y formatos de persistencia
 │   ├── DEPLOYMENT.md                # Docker, systemd y proxy HTTPS para cámara
+│   ├── CLOUDFLARE-TUNNEL.md         # Túnel HTTPS para prototipos y pruebas externas
 │   ├── SEQUENCE_DIAGRAMS.md         # Diagramas de secuencia Mermaid
+│   ├── EXTENDING.md                 # Guía para añadir perfiles y nuevas plagas
 │   ├── TESTING.md                   # Catálogo de pruebas unitarias y de integración
 │   ├── TROUBLESHOOTING.md           # Runbook para solución de incidentes
 │   ├── USER_MANUAL.md               # Manual de usuario para personal de campo
@@ -113,12 +143,14 @@ El proyecto cuenta con una biblioteca de documentación completa e indexada en e
 │   │       └── SpinnerOverlay.jsx   # Modal de carga animado
 │   └── dist/                        # Bundle optimizado compilado por Vite
 ├── data/
-│   └── reference_gallery/           # Tus fotos reales organizadas por fase
-│       ├── huevo/
+│   └── reference_gallery/           # Tus fotos reales organizadas por perfil
+│       ├── huevo/                   # Trips histórico (raíz)
 │       ├── larva/                   # Larva = Ninfa (una sola fase)
 │       ├── pupa/
 │       ├── adulto/
-│       └── dano_gulupa/
+│       ├── dano_gulupa/
+│       ├── moscas/                  # moscas/objetivo/estadio
+│       └── aranas_rojas/            # aranas_rojas/objetivo/estadio
 ├── client_example.js                # Snippet JS listo para integrar en tu web actual
 ├── GUIA_CONEXION_WEB.md             # Guía paso a paso para conectar webs externas
 ├── requirements.txt                 # Dependencias Python
@@ -157,12 +189,30 @@ No existe registro público. Las cuentas se configuran en el servidor.
 5. Puedes revocar cualquier clave desde el mismo panel.
 
 ```bash
+# Perfil trips (por defecto)
 curl -X POST http://localhost:8000/api/predict \
   -H "X-API-Key: mk_tu_clave" \
   -F "file=@foto.jpg" \
   -F "temperature_c=22.5" \
   -F "crop=gulupa"
+
+# Moscas de la fruta
+curl -X POST http://localhost:8000/api/predict \
+  -H "X-API-Key: mk_tu_clave" \
+  -F "file=@foto.jpg" \
+  -F "temperature_c=22.5" \
+  -F "profile=moscas"
+
+# Arañas rojas
+curl -X POST http://localhost:8000/api/predict \
+  -H "X-API-Key: mk_tu_clave" \
+  -F "file=@foto.jpg" \
+  -F "temperature_c=22.5" \
+  -F "profile=aranas_rojas"
 ```
+
+Consulta `GET /api/profiles` para ver los perfiles y objetivos disponibles, y
+`GET /api/catalog` para el catálogo completo.
 
 Variables de entorno recomendadas en producción:
 
@@ -171,6 +221,8 @@ export ADMIN_USERNAME="tu_usuario"
 export ADMIN_PASSWORD="una_contraseña_larga_y_segura"
 export AUTH_SECRET_KEY="cadena_aleatoria_larga"
 export SESSION_COOKIE_SECURE="true"   # cuando sirvas el panel por HTTPS
+export DEFAULT_DETECTION_PROFILE="trips"
+export ENABLE_TTA="false"
 ```
 
 ---

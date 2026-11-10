@@ -1,0 +1,38 @@
+# Entornos virtuales locales y Python bytecode
+.venv/
+env/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Node y dependencias locales de Frontend
+frontend/node_modules/
+node_modules/
+npm-debug.log*
+
+# Git, IDEs y archivos de sistema
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Caches locales
+.cache/
+hf_cache/
+
+# Secretos y llaves locales
+data/api_keys.json
+data/.auth_secret
+
+# Documentación y temporales no necesarios en tiempo de ejecución
+docs/
+temp/
+uploads/
+*.log
+*.tmp
+client_example.js

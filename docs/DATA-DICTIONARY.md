@@ -1,6 +1,6 @@
-# 📖 Diccionario de Datos — Trips BioCLIP 2.5 API
+# 📖 Diccionario de Datos — Macollo Visión Fitosanitaria API
 
-Este documento especifica la totalidad de los modelos de datos, contratos Pydantic, estructuras de intercambio JSON y formatos de almacenamiento en disco utilizados por **Macollo Trips API**.
+Este documento especifica la totalidad de los modelos de datos, contratos Pydantic, estructuras de intercambio JSON y formatos de almacenamiento en disco utilizados por **Macollo Visión Fitosanitaria API**.
 
 ---
 
@@ -22,6 +22,33 @@ Entregada por el endpoint `POST /api/predict`.
 | `exemplar_matches` | `List[ExemplarMatch]` | Sí | Lista de hasta $k=3$ fotos coincidentes de la galería local con su similitud de cosenos. | `[...]` |
 | `diagnostics` | `object` | Sí | Metadatos técnicos de ejecución del Vision Transformer y parámetros de inferencia. | `{"model_used": "...", ...}` |
 | `inference_time_ms` | `float` | Sí | Tiempo total de cómputo en milisegundos desde la recepción del archivo hasta el JSON final. | `328.45` |
+| `profile` | `string` | Sí (2.x) | Perfil de detección usado: `trips`, `moscas`, `aranas_rojas`. | `"trips"` |
+| `crop` | `string` o `null` | No (2.x) | Cultivo analizado. | `"gulupa"` |
+| `detection` | `DetectionInfo` o `null` | No (2.x) | Resultado genérico: objetivo, categoría, confianza, incertidumbre y scores por clase. | Objeto `DetectionInfo` |
+
+> Los campos 1.x se mantienen por compatibilidad. Para integraciones nuevas usa
+> `profile`, `crop` y `detection`; `is_thrips` solo tiene sentido en el perfil
+> `trips`.
+
+---
+
+### 1.1.1 `DetectionInfo` (Resultado Genérico 2.x)
+Sub-objeto contenido dentro de `PredictionResponse.detection`.
+
+| Campo | Tipo | Requerido | Descripción | Ejemplo |
+| :--- | :--- | :---: | :--- | :--- |
+| `profile` | `string` | Sí | Clave del perfil de detección. | `"moscas"` |
+| `profile_name` | `string` | Sí | Nombre legible del perfil. | `"Moscas de la Fruta"` |
+| `category` | `string` | Sí | Categoría del objetivo: `pest`, `damage`, `healthy`, `other` (el catálogo también admite `disease` para extensiones futuras). | `"pest"` |
+| `is_positive` | `boolean` | Sí | `true` si se confirmó el objetivo positivo del perfil. | `true` |
+| `confidence` | `float` | Sí | Confianza calibrada ($0.0$ a $1.0$). | `0.706` |
+| `is_uncertain` | `boolean` | Sí | `true` si la confianza está cerca del umbral de decisión. | `false` |
+| `target_key` | `string` | Sí | Clave del objetivo en el catálogo. | `"mosca_frutal_anastrepha"` |
+| `target_name` | `string` | Sí | Nombre común del objetivo. | `"Mosca de la Fruta"` |
+| `scientific_name` | `string` o `null` | No | Nombre científico, si aplica. | `"Anastrepha spp."` |
+| `target_description` | `string` | No | Descripción agronómica del objetivo. | `"..."` |
+| `profile_experimental` | `boolean` | No | `true` solo si el perfil aún no está calibrado. Los tres perfiles actuales son estables (`false`). | `false` |
+| `scores` | `object` | No | Probabilidades por cada objetivo del perfil. | `{"mosca_frutal_anastrepha": 0.71, "mosca_blanca_bemisia": 0.12, ...}` |
 
 ---
 
@@ -31,7 +58,7 @@ Sub-objeto contenido dentro de `PredictionResponse.cycle_info`.
 | Campo | Tipo | Requerido | Descripción | Ejemplo |
 | :--- | :--- | :---: | :--- | :--- |
 | `temperature_c` | `float` | Sí | Temperatura ambiental (°C) tomada en cuenta para la proyección biológica. | `22.5` |
-| `detected_stage_key` | `string` | Sí | Clave corta de la fase: `"huevo"`, `"larva"`, `"pupa"`, `"adulto"`, `"dano_gulupa"`. | `"larva"` |
+| `detected_stage_key` | `string` | Sí | Clave corta del estadio según el perfil (ej. `"huevo"`, `"larva"`, `"pupa"`, `"adulto"`, `"dano_gulupa"` en trips; `"dano"` en moscas y arañas rojas). | `"larva"` |
 | `detected_stage_name` | `string` | Sí | Nombre agronómico descriptivo de la fase actual. | `"Larva / Ninfa (Fase de Raspado)"` |
 | `current_stage_duration_days` | `string` | Sí | Estimación de duración de la fase actual en días a la temperatura indicada. | `"7.9 días a 22.5°C"` |
 | `days_to_adult` | `string` | Sí | Días proyectados restantes para la emergencia de la siguiente cohorte de adultos. | `"4.6 días (pasará a pupa y luego a adulto)"` |
@@ -57,8 +84,11 @@ Sub-objeto contenido dentro de `PredictionResponse.recommendations`.
 | Campo | Tipo | Requerido | Descripción | Ejemplo |
 | :--- | :--- | :---: | :--- | :--- |
 | `filename` | `string` | Sí | Nombre del archivo de fotografía guardado en el servidor. | `"1729758120_ninfa_lote1.jpg"` |
-| `stage` | `string` | Sí | Fase biológica asignada al ejemplar en disco. | `"larva"` |
+| `stage` | `string` | Sí | Estadio o severidad asignado al ejemplar. | `"larva"` |
 | `similarity` | `float` | Sí | Similitud de cosenos normalizada en el espacio latente ($0.0$ a $1.0$). | `0.8845` |
+| `target` | `string` o `null` | No | Objetivo del catálogo al que pertenece el ejemplar. | `"mosca_frutal_anastrepha"` |
+| `profile` | `string` o `null` | No | Perfil de detección del ejemplar. | `"moscas"` |
+| `label` | `string` o `null` | No | Carpeta de galería del ejemplar. | `"moscas/mosca_frutal_anastrepha/larva"` |
 
 ---
 
@@ -100,13 +130,30 @@ data/
 ├── .auth_secret                    # 32 bytes de entropía pura para firma HMAC-SHA256 (chmod 0600)
 ├── api_keys.json                   # Arreglo JSON de claves registradas (hashes SHA-256) (chmod 0600)
 ├── gallery_embeddings.pt           # Checkpoint binario PyTorch con embeddings latentes y metadatos
-└── reference_gallery/              # Estructura física de fotografías organizadas por fase
-    ├── huevo/                      # Fotos de huevos de trips o inserciones
-    ├── larva/                      # Fotos de larvas / ninfas activas de trips
-    ├── pupa/                       # Fotos de pupas / prepupas en reposo
-    ├── adulto/                     # Fotos de trips adultos con alas franjeadas
-    └── dano_gulupa/                # Fotos de roña / cacarizado en frutos verdes
+└── reference_gallery/              # Fotografías de referencia
+    ├── huevo/                      # [trips] Huevos o inserciones
+    ├── larva/                      # [trips] Larvas / ninfas activas
+    ├── pupa/                       # [trips] Pupas / prepupas en reposo
+    ├── adulto/                     # [trips] Adultos con alas franjeadas
+    ├── dano_gulupa/                # [trips] Roña / cacarizado en frutos verdes
+    ├── moscas/                     # [moscas] Perfil de moscas de la fruta
+    │   └── mosca_frutal_anastrepha/
+    │       ├── huevo/
+    │       ├── larva/
+    │       ├── pupa/
+    │       ├── adulto/
+    │       └── dano/
+    └── aranas_rojas/               # [aranas_rojas] Perfil de araña roja
+        └── arana_roja_tetranychus/
+            ├── huevo/
+            ├── larva/
+            ├── adulto/
+            └── dano/
 ```
+
+> Las carpetas históricas de trips se conservan en la raíz de `reference_gallery/`
+> para compatibilidad 1.x. Los perfiles nuevos usan `perfil/objetivo/estadio/`.
+> La lista exacta y vigente se obtiene en `GET /api/gallery/labels`.
 
 ### 3.1 Estructura del Checkpoint `gallery_embeddings.pt`
 Guardado mediante `torch.save()`:
@@ -115,11 +162,22 @@ Guardado mediante `torch.save()`:
     "embeddings": torch.Tensor,  # Tensor float32 de forma [N, 1024] normalizado en norma L2
     "metadata": [
         {
-            "filename": str,      # Nombre del archivo en disco
-            "stage": str,         # Fase biológica ("huevo", "larva", "pupa", "adulto", "dano_gulupa")
-            "path": str           # Ruta absoluta en el sistema de archivos
+            "filename": str,        # Nombre del archivo en disco
+            "stage": str,           # Estadio o severidad ("huevo", "larva", ..., "dano")
+            "label": str,           # Carpeta de galería (ej. "moscas/mosca_frutal_anastrepha/larva")
+            "target": str,          # Objetivo del catálogo
+            "profile": str,         # Perfil de detección ("trips", "moscas", "aranas_rojas")
+            "relative_path": str,   # Ruta relativa a reference_gallery/
+            "path": str             # Ruta absoluta en el sistema de archivos
         },
         ...
-    ]
+    ],
+    "file_signature": {
+        "ruta/relativa/foto.jpg": {
+            "size": int,            # Tamaño en bytes
+            "mtime_ns": int,        # Fecha de modificación en nanosegundos
+            "label": str            # Carpeta de galería
+        }
+    }
 }
 ```

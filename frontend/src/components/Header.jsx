@@ -3,6 +3,9 @@ import React from "react";
 export default function Header({ username, onLogout, serverStatus }) {
   const isHealthy = serverStatus?.status === "healthy";
   const device = serverStatus?.device ? serverStatus.device.toUpperCase() : "CPU";
+  const profileCount = Array.isArray(serverStatus?.profiles)
+    ? serverStatus.profiles.length
+    : 0;
 
   return (
     <header>
@@ -10,10 +13,11 @@ export default function Header({ username, onLogout, serverStatus }) {
         <div className="logo-badge">🌿</div>
         <div className="logo-title">
           <h1>
-            Macollo Trips <span className="badge-tag">API</span>
+            Macollo Visión <span className="badge-tag">API</span>
           </h1>
           <p>
-            Monitoreo fitosanitario en gulupa (<i>Passiflora edulis</i>)
+            Detección de trips, moscas de la fruta y arañas rojas
+            {profileCount > 0 ? ` · ${profileCount} perfiles activos` : ""}
           </p>
         </div>
       </div>

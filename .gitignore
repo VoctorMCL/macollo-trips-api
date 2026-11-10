@@ -32,10 +32,14 @@ data/reference_gallery/larva/*
 data/reference_gallery/pupa/*
 data/reference_gallery/adulto/*
 data/reference_gallery/dano_gulupa/*
+# Perfiles nuevos: perfil/objetivo/estadio (todo el contenido se ignora)
+data/reference_gallery/moscas/*
+data/reference_gallery/aranas_rojas/*
 data/gallery_embeddings.pt
 data/api_keys.json
 data/.auth_secret
 !data/reference_gallery/*/.gitkeep
+!data/reference_gallery/*/*/.gitkeep
 
 # Variables de entorno
 .env

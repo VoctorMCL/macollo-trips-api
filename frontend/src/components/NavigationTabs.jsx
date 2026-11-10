@@ -5,7 +5,7 @@ export default function NavigationTabs({ activeTab, onSelectTab }) {
     { id: "scoutView", label: "Inspección" },
     { id: "galleryView", label: "Galería" },
     { id: "apiView", label: "API y accesos" },
-    { id: "handbookView", label: "Ficha técnica" }
+    { id: "handbookView", label: "Catálogo" }
   ];
 
   return (
