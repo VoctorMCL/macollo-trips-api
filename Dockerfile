@@ -58,8 +58,7 @@ COPY data/ ./data/
 # disco en milisegundos (ver PromptBank.load_cache) en lugar de re-codificar
 # ~100 prompts con el codificador de texto en CPU, lo que ahorra decenas de
 # segundos en cada arranque en frío de Cloud Run.
-RUN python -c "from backend.app.ml.bioclip_engine import bioclip_engine; bioclip_engine.load_model()" \
-    && python -c "from backend.app.ml.bioclip_engine import bioclip_engine; assert bioclip_engine.is_loaded, 'La precomputación de cachés falló'"
+RUN python -c "from backend.app.ml.bioclip_engine import bioclip_engine; bioclip_engine.load_model(); from backend.app.config import PROMPT_CACHE_PATH; assert PROMPT_CACHE_PATH.exists(), 'La precomputación de cachés falló'"
 
 # Copiar los archivos estáticos compilados de la interfaz React desde la primera etapa
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
