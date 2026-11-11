@@ -659,12 +659,71 @@ ARANAS_ROJAS_PROFILE = DetectionProfile(
     damage_stage_keys=("dano",),
 )
 
+# ---------------------------------------------------------------------------
+# Perfil universal / auto-detección (Cualquier plaga o tejido sano)
+# ---------------------------------------------------------------------------
+
+AUTO_TARGET_KEYS: Tuple[str, ...] = (
+    # Trips
+    "trips_frankliniella_occidentalis",
+    "trips_frankliniella_panamensis",
+    "trips_tabaci",
+    "trips_general",
+    "trips_dano_fruto_gulupa",
+    # Moscas
+    "mosca_frutal_anastrepha",
+    # Arañas
+    "arana_roja_tetranychus",
+    # Otras plagas comunes en Gulupa
+    "neg_mosca_blanca",
+    "neg_pulgon",
+    "neg_acaro_plano",
+    "neg_mosca_minadora",
+    # Tejido vegetal sano / otros
+    "neg_hoja_sana_gulupa",
+    "neg_flor_sana_gulupa",
+    "neg_zarcillo_tallo",
+    "neg_mancha_polvo_caldo",
+)
+
+AUTO_POSITIVE_TARGET_KEYS: Tuple[str, ...] = (
+    "trips_frankliniella_occidentalis",
+    "trips_frankliniella_panamensis",
+    "trips_tabaci",
+    "trips_general",
+    "trips_dano_fruto_gulupa",
+    "mosca_frutal_anastrepha",
+    "arana_roja_tetranychus",
+    "neg_mosca_blanca",
+    "neg_pulgon",
+    "neg_acaro_plano",
+    "neg_mosca_minadora",
+)
+
+AUTO_PROFILE = DetectionProfile(
+    key="auto",
+    name="Auto-Detección (Cualquier Plaga)",
+    description=(
+        "Detecta automáticamente cualquier insecto plaga, ácaro o síntoma fitosanitario "
+        "(Trips, Moscas de la fruta, Arañas rojas, Mosca blanca, Pulgón, Ácaro plano) o tejido sano."
+    ),
+    target_keys=AUTO_TARGET_KEYS,
+    positive_target_keys=AUTO_POSITIVE_TARGET_KEYS,
+    stages=TRIPS_STAGES,
+    crop="gulupa",
+    min_confidence=0.50,
+    min_margin=0.02,
+    experimental=False,
+    agronomy_provider="auto",
+    damage_stage_keys=("dano_gulupa",),
+)
+
 PROFILES: Dict[str, DetectionProfile] = {
     profile.key: profile
-    for profile in (TRIPS_PROFILE, MOSCAS_PROFILE, ARANAS_ROJAS_PROFILE)
+    for profile in (AUTO_PROFILE, TRIPS_PROFILE, MOSCAS_PROFILE, ARANAS_ROJAS_PROFILE)
 }
 
-DEFAULT_PROFILE_KEY = "trips"
+DEFAULT_PROFILE_KEY = "auto"
 
 
 def get_profile(profile_key: Optional[str]) -> DetectionProfile:

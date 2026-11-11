@@ -28,18 +28,18 @@ export default function DiagnosisCard({ data }) {
   const cycleLabel = "Ciclo y urgencia";
   const stageValue = isPositive
     ? data.detected_stage
-    : `Sin detección de ${profileName.toLowerCase()}`;
+    : "Follaje sin presencia de plagas";
 
   return (
     <div className="diagnosis-container" style={{ display: "block" }}>
       <div className={`alert-banner ${isPositive ? "thrips-detected" : "clean-leaf"}`}>
         <div className="alert-header">
           <h2>
-            {isPositive ? `${targetName} detectado` : `No se detectó ${profileName.toLowerCase()}`}
+            {isPositive ? `${targetName} detectado` : "Tejido vegetal sano (Sin plagas)"}
           </h2>
           <p>
             {isPositive
-              ? `${scientificName ? scientificName + " · " : ""}${profileName} · ${data.inference_time_ms} ms`
+              ? `${scientificName ? scientificName + " · " : ""}${data.inference_time_ms} ms`
               : `Identificado como: ${data.detected_target} · ${data.inference_time_ms} ms`}
           </p>
           {isPositive && category && (

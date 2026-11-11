@@ -271,8 +271,28 @@ class BioCLIPEngine:
             or (is_positive and margin < profile.min_margin)
         )
 
+        display_target_key = best_positive_key if is_positive else top_target_key
+        display_target = get_target(display_target_key)
+        top_target = get_target(top_target_key)
+
+        # En modo auto, determinar el perfil biológico de la plaga ganadora
+        effective_profile = profile
+        if profile.key == "auto":
+            if top_target_key.startswith("trips") or display_target_key.startswith("trips"):
+                effective_profile = get_profile("trips")
+            elif top_target_key.startswith("mosca_frutal") or display_target_key.startswith("mosca_frutal"):
+                effective_profile = get_profile("moscas")
+            elif top_target_key.startswith("arana_roja") or display_target_key.startswith("arana_roja"):
+                effective_profile = get_profile("aranas_rojas")
+
+        is_damage = (
+            top_target.kind == "damage"
+            or display_target.kind == "damage"
+        )
+
         # 3. Estadio biológico o severidad
-        stage_keys, stage_embeddings = self.prompt_bank.stage_embeddings(profile)
+        stage_profile = effective_profile if effective_profile.key != "auto" else profile
+        stage_keys, stage_embeddings = self.prompt_bank.stage_embeddings(stage_profile)
         stage_scores: Dict[str, float] = {}
         best_stage_key = ""
         best_stage_name = ""
@@ -297,23 +317,18 @@ class BioCLIPEngine:
 
             best_stage_key = max(stage_scores, key=stage_scores.get)
             best_stage_confidence = stage_scores[best_stage_key]
-            best_stage_name = profile.stages[best_stage_key].name
+            best_stage_name = stage_profile.stages[best_stage_key].name
+            if best_stage_key in stage_profile.damage_stage_keys:
+                is_damage = True
+        elif is_positive:
+            best_stage_name = "Adulto / Colonia activa"
 
-        display_target_key = best_positive_key if is_positive else top_target_key
-        display_target = get_target(display_target_key)
-        top_target = get_target(top_target_key)
-        is_damage = (
-            best_stage_key in profile.damage_stage_keys
-            or top_target.kind == "damage"
-            or display_target.kind == "damage"
-        )
-
-        # 4. Motor agronómico específico del perfil
+        # 4. Motor agronómico específico del perfil o plaga
         cycle_info = None
         recommendations = None
         if is_positive:
             cycle_info, recommendations = get_agronomy(
-                profile_key=profile.key,
+                profile_key=effective_profile.key,
                 stage_key=best_stage_key,
                 temperature_c=temperature_c,
                 target_key=display_target_key,
@@ -333,12 +348,13 @@ class BioCLIPEngine:
         else:
             detected_stage = "N/A"
 
-        is_thrips = bool(is_positive and profile.key == "trips")
-        thrips_confidence = round(confidence, 4) if profile.key == "trips" else 0.0
+        is_thrips = bool(is_positive and (profile.key == "trips" or display_target_key.startswith("trips")))
+        thrips_confidence = round(confidence, 4) if is_thrips else 0.0
 
         detection = {
             "profile": profile.key,
             "profile_name": profile.name,
+            "detected_profile": effective_profile.key,
             "category": display_target.kind,
             "is_positive": bool(is_positive),
             "confidence": round(confidence, 4),

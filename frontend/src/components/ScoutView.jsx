@@ -1,12 +1,48 @@
 import React, { useEffect, useState, useRef } from "react";
 import DiagnosisCard from "./DiagnosisCard";
 
+function compressImageClient(fileOrBlob) {
+  return new Promise((resolve) => {
+    if (!fileOrBlob || (fileOrBlob.size && fileOrBlob.size < 400 * 1024)) {
+      return resolve(fileOrBlob);
+    }
+    const img = new Image();
+    const url = URL.createObjectURL(fileOrBlob);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const maxDim = 1280;
+      let w = img.width;
+      let h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) {
+          h = Math.round((h * maxDim) / w);
+          w = maxDim;
+        } else {
+          w = Math.round((w * maxDim) / h);
+          h = maxDim;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => resolve(blob || fileOrBlob), "image/jpeg", 0.85);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(fileOrBlob);
+    };
+    img.src = url;
+  });
+}
+
 export default function ScoutView({
   camera,
   temperature,
   onTemperatureChange,
   profiles = [],
-  selectedProfile = "trips",
+  selectedProfile = "auto",
   onProfileChange,
   showLoading,
   hideLoading,
@@ -20,19 +56,17 @@ export default function ScoutView({
     profiles.find((profile) => profile.key === selectedProfile) || null;
 
   useEffect(() => {
-    // Evita mostrar un diagnóstico de un perfil anterior al cambiar de perfil.
     setDiagnosis(null);
   }, [selectedProfile]);
 
   const handleCaptureAndPredict = async () => {
     try {
-      // Si la cámara estaba congelada con un preview previo, reactivarla
       if (camera.previewSrc && !camera.cameraActive) {
         await camera.startCamera();
         return;
       }
 
-      showLoading("Capturando imagen con zoom macro...");
+      showLoading("Capturando imagen...");
       const blob = await camera.captureFrame();
       hideLoading();
       await executePrediction(blob);
@@ -54,12 +88,21 @@ export default function ScoutView({
   };
 
   const executePrediction = async (imageBlob) => {
+    showLoading("Optimizando y enviando muestra...");
+
+    let payloadBlob = imageBlob;
+    try {
+      payloadBlob = await compressImageClient(imageBlob);
+    } catch (e) {
+      console.warn("Compresión cliente:", e);
+    }
+
     showLoading("Clasificando muestra con BioCLIP 2.5...");
 
     const formData = new FormData();
-    formData.append("file", imageBlob, `muestra_${selectedProfile}.jpg`);
+    formData.append("file", payloadBlob, "muestra.jpg");
     formData.append("temperature_c", (parseFloat(temperature) || 20.0).toString());
-    formData.append("profile", selectedProfile);
+    formData.append("profile", "auto");
     formData.append("crop", "gulupa");
 
     try {
@@ -98,36 +141,19 @@ export default function ScoutView({
       <div className="page-heading">
         <h2>Inspección de campo</h2>
         <p>
-          Toma una foto de la hoja, flor o fruto y la API identificará el objetivo
-          seleccionado{activeProfile ? `: ${activeProfile.name.toLowerCase()}` : ""}.
+          Toma una foto de cualquier insecto, hoja o fruto. La IA identificará
+          automáticamente la plaga presente y emitirá su plan agronómico.
         </p>
       </div>
 
       <div className="env-bar">
         <div className="env-title">
-          <span>Perfil de detección</span>
-          <span className="crop-pill">
-            Cultivo: {activeProfile?.crop === "gulupa" ? "Gulupa" : activeProfile?.crop || "Gulupa"}
+          <span>Modo de Detección</span>
+          <span className="crop-pill" style={{ background: "#2e7d32", color: "#fff" }}>
+            🔍 Auto-Detección de Cualquier Plaga
           </span>
         </div>
         <div className="env-controls">
-          <div className="stage-select-row">
-            <label htmlFor="profileSelect">Perfil</label>
-            <select
-              id="profileSelect"
-              value={selectedProfile}
-              onChange={(e) => onProfileChange && onProfileChange(e.target.value)}
-            >
-              {profiles.length === 0 && <option value="trips">Trips</option>}
-              {profiles.map((profile) => (
-                <option key={profile.key} value={profile.key}>
-                  {profile.name}
-                  {profile.experimental ? " (experimental)" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div
             className="temp-input-wrapper"
             title="Temperatura leída de tu estación o ingresada manualmente"

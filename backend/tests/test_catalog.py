@@ -34,7 +34,7 @@ class TestExtensibleCatalog(unittest.TestCase):
     def test_profiles_and_targets_integrity(self):
         """El catálogo debe tener trips, moscas y arañas rojas coherentes."""
 
-        self.assertEqual(set(PROFILES), {"trips", "moscas", "aranas_rojas"})
+        self.assertEqual(set(PROFILES), {"auto", "trips", "moscas", "aranas_rojas"})
         self.assertFalse(get_profile("moscas").experimental)
         self.assertFalse(get_profile("aranas_rojas").experimental)
 
@@ -111,7 +111,7 @@ class TestCatalogEndpoints(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         keys = {profile["key"] for profile in data["profiles"]}
-        self.assertEqual(keys, {"trips", "moscas", "aranas_rojas"})
+        self.assertEqual(keys, {"auto", "trips", "moscas", "aranas_rojas"})
 
         profile = self.client.get("/api/profiles/moscas")
         self.assertEqual(profile.status_code, 200)
