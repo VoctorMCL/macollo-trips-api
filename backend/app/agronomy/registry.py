@@ -28,7 +28,7 @@ COMMON_PESTS_MIP: Dict[str, Dict[str, Any]] = {
             "Eliminación y quema/entierro de arvenses hospederas en bordes de lote.",
             "Evitar siembras escalonadas contiguas sin periodo de descanso."
         ],
-        "chemical_biorational": [
+        "chemical_biorational_control": [
             "Aplicación focalizada de jabón potásico (1-2%) o sales potásicas de ácidos grasos.",
             "Extracto concentrado de neem (azadiractina) en etapas de ninfa temprana."
         ],
@@ -49,7 +49,7 @@ COMMON_PESTS_MIP: Dict[str, Dict[str, Any]] = {
             "Poda y retiro de brotes tiernos con colonias densas y presencia de mielecilla.",
             "Control de hormigas en la base de la planta (evitan que defiendan a los pulgones)."
         ],
-        "chemical_biorational": [
+        "chemical_biorational_control": [
             "Aplicación de extracto de ajo-ají o jabón agrícola para disolver la cutícula del insecto.",
             "En alta presión: Flonicamid o Pimetrozina aplicados dirigidos al cogollo."
         ],
@@ -70,7 +70,7 @@ COMMON_PESTS_MIP: Dict[str, Dict[str, Any]] = {
             "Manejo de podas de ventilación para evitar microclimas estancados y secos.",
             "Riego oportuno para evitar estrés hídrico que favorece la dispersión del ácaro."
         ],
-        "chemical_biorational": [
+        "chemical_biorational_control": [
             "Azufre elemental en formulación líquida micronizada (no mezclar con aceites minerales).",
             "Aceites vegetales emulsificados en horas tempranas de la mañana."
         ],
@@ -91,7 +91,7 @@ COMMON_PESTS_MIP: Dict[str, Dict[str, Any]] = {
             "Recolección manual y destrucción de hojas bajeras con galerías activas con larva viva.",
             "Destrucción de rastrojos de cosecha inmediatamente después del ciclo."
         ],
-        "chemical_biorational": [
+        "chemical_biorational_control": [
             "Azadiractina foliar (inhibe la muda de larvas dentro de la galería).",
             "Ciromazina (regulador de crecimiento específico para larvas de dípteros)."
         ],
