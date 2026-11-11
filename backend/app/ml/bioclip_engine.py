@@ -379,6 +379,50 @@ class BioCLIPEngine:
             raise RuntimeError("El banco de prompts no está inicializado.")
 
         profile = get_profile(profile_key)
+
+        # 0. Verificación de calidad mínima de imagen (fotos negras, sobreexpuestas o sin textura)
+        from backend.app.services.images import check_image_quality
+
+        is_valid_quality, quality_reason = check_image_quality(image)
+        if not is_valid_quality:
+            inference_time_ms = round((time.perf_counter() - started_at) * 1000, 2)
+            return {
+                "is_thrips": False,
+                "thrips_confidence": 0.0,
+                "detected_target": "Sin objetivo identificable (Foto oscura o no válida)",
+                "detected_stage": "N/A",
+                "stage_confidence": 0.0,
+                "is_damage_manifestation": False,
+                "cycle_info": None,
+                "recommendations": None,
+                "exemplar_matches": [],
+                "inference_time_ms": inference_time_ms,
+                "profile": profile.key,
+                "crop": crop or profile.crop,
+                "detection": {
+                    "profile": profile.key,
+                    "profile_name": profile.name,
+                    "detected_profile": profile.key,
+                    "category": "other",
+                    "is_positive": False,
+                    "confidence": 0.0,
+                    "is_uncertain": False,
+                    "target_key": "neg_foto_no_valida",
+                    "target_name": "Sin objetivo identificable",
+                    "scientific_name": None,
+                    "target_description": quality_reason or "La imagen no contiene iluminación o contraste suficiente para identificar insectos o tejidos vegetales.",
+                    "profile_experimental": profile.experimental,
+                    "scores": {},
+                },
+                "diagnostics": {
+                    "model_used": self.loaded_model_name,
+                    "device": str(self.device),
+                    "profile": profile.key,
+                    "quality_check_failed": True,
+                    "quality_reason": quality_reason,
+                },
+            }
+
         image_emb = self.extract_image_embedding(image, use_tta=use_tta)
         logit_scale = self._logit_scale()
 
@@ -411,21 +455,33 @@ class BioCLIPEngine:
         exemplar_matches, gallery_boost, gallery_target, gallery_stage_votes = (
             self._gallery_evidence(image_emb, profile)
         )
-        confidence = min(1.0, positive_prob + gallery_boost)
-        # En trips se respeta el umbral global histórico (CONFIDENCE_THRESHOLD).
-        # Los perfiles nuevos usan su propio umbral calibrado.
         threshold = (
             CONFIDENCE_THRESHOLD
-            if profile.key == DEFAULT_PROFILE_KEY
+            if profile.key == "trips"
             else profile.min_confidence
         )
-        is_positive = confidence >= threshold
+
+        # Si el objetivo ganador es una clase negativa (hoja sana, araña benéfica, muestra no agrícola, etc.),
+        # la muestra se clasifica como negativa y NO se fuerza una detección positiva.
+        if top_target_key in negative_keys:
+            is_positive = False
+            confidence = round(1.0 - target_probs[top_target_key], 4)
+            display_target_key = top_target_key
+        else:
+            display_target_key = top_target_key
+            if top_target_key.startswith("trips"):
+                trips_prob = sum(target_probs.get(k, 0.0) for k in positive_keys if k.startswith("trips"))
+                confidence = min(1.0, trips_prob + gallery_boost)
+            else:
+                confidence = min(1.0, target_probs[top_target_key] + gallery_boost)
+
+            is_positive = (confidence >= threshold) and (margin >= 0.0)
+
         is_uncertain = (
             (not is_positive and confidence >= threshold - 0.10)
             or (is_positive and margin < profile.min_margin)
         )
 
-        display_target_key = best_positive_key if is_positive else top_target_key
         display_target = get_target(display_target_key)
         top_target = get_target(top_target_key)
 
@@ -490,12 +546,24 @@ class BioCLIPEngine:
             )
 
         # 5. Respuesta genérica + campos históricos para compatibilidad
-        if display_target.scientific_name:
-            detected_target = (
-                f"{display_target.common_name} ({display_target.scientific_name})"
+        if not is_positive and display_target_key in positive_keys:
+            target_name = "Sin plaga confirmada"
+            scientific_name = None
+            target_description = (
+                "No se detectó presencia confirmada de Trips ni de otras plagas "
+                "de pasifloras (nivel de certeza insuficiente)."
             )
+            detected_target = "Sin plaga confirmada (Muestra indeterminada)"
+            category = "healthy"
         else:
-            detected_target = display_target.common_name
+            target_name = display_target.common_name
+            scientific_name = display_target.scientific_name
+            target_description = display_target.description
+            category = display_target.kind
+            if scientific_name:
+                detected_target = f"{target_name} ({scientific_name})"
+            else:
+                detected_target = target_name
 
         if is_positive:
             detected_stage = best_stage_name or display_target.common_name
@@ -509,14 +577,14 @@ class BioCLIPEngine:
             "profile": profile.key,
             "profile_name": profile.name,
             "detected_profile": effective_profile.key,
-            "category": display_target.kind,
+            "category": category,
             "is_positive": bool(is_positive),
             "confidence": round(confidence, 4),
             "is_uncertain": bool(is_uncertain),
-            "target_key": display_target.key,
-            "target_name": display_target.common_name,
-            "scientific_name": display_target.scientific_name,
-            "target_description": display_target.description,
+            "target_key": display_target.key if is_positive or display_target_key not in positive_keys else "neg_sin_confirmar",
+            "target_name": target_name,
+            "scientific_name": scientific_name,
+            "target_description": target_description,
             "profile_experimental": profile.experimental,
             "scores": {
                 key: round(value, 4) for key, value in target_probs.items()

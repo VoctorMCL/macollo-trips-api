@@ -127,25 +127,26 @@ _register(
     # --- Clases positivas: Trips -------------------------------------------------
     DetectionTarget(
         key="trips_frankliniella_occidentalis",
-        common_name="Trips de las Flores",
+        common_name="Trips",
         scientific_name="Frankliniella occidentalis",
         kind=KIND_PEST,
-        description="Especie polífaga, principal vector de tospovirus en gulupa.",
+        description="Especie polífaga (Frankliniella occidentalis), principal plaga y vector de tospovirus en pasifloráceas (gulupa).",
         prompts=(
             "Animalia Arthropoda Insecta Thysanoptera Thripidae Frankliniella occidentalis, "
             "western flower thrips on passionfruit leaf or flower",
             "A macro photograph of a western flower thrips, Frankliniella occidentalis, "
             "slender amber body with fringed wings on a green leaf",
+            "Tiny slender elongated thrips insect Frankliniella occidentalis on foliage, macro photography",
         ),
     ),
     DetectionTarget(
         key="trips_frankliniella_panamensis",
-        common_name="Trips de las Pasifloras",
-        scientific_name="Frankliniella panamensis",
+        common_name="Trips",
+        scientific_name="Frankliniella occidentalis",
         kind=KIND_PEST,
-        description="Presente con frecuencia en inflorescencias de pasifloráceas.",
+        description="Trips (Frankliniella occidentalis) en inflorescencias y brotes de pasifloráceas.",
         prompts=(
-            "Animalia Arthropoda Insecta Thysanoptera Thripidae Frankliniella, "
+            "Animalia Arthropoda Insecta Thysanoptera Thripidae Frankliniella occidentalis, "
             "flower thrips insect on Passiflora edulis flower bud",
             "Close-up of a Frankliniella thrips resting on a purple passionflower, "
             "tiny elongated insect with fringed wings",
@@ -153,25 +154,24 @@ _register(
     ),
     DetectionTarget(
         key="trips_tabaci",
-        common_name="Trips de la Cebolla",
-        scientific_name="Thrips tabaci",
+        common_name="Trips",
+        scientific_name="Frankliniella occidentalis",
         kind=KIND_PEST,
-        description="Especie polífaga de hojas tiernas y botones en épocas secas.",
+        description="Trips (Frankliniella occidentalis) en hojas tiernas y botones florales.",
         prompts=(
-            "Animalia Arthropoda Insecta Thysanoptera Thripidae Thrips tabaci, "
-            "onion thrips slender elongated body on foliage",
-            "Macro photo of an onion thrips, Thrips tabaci, pale yellow slender insect "
-            "on a green plant leaf",
+            "Animalia Arthropoda Insecta Thysanoptera Thripidae Frankliniella occidentalis, "
+            "thrips slender elongated body on foliage",
+            "Macro photo of a thrips, pale yellow slender insect on a green plant leaf",
         ),
     ),
     DetectionTarget(
         key="trips_general",
         common_name="Trips",
-        scientific_name="Thysanoptera: Thripidae",
+        scientific_name="Frankliniella occidentalis",
         kind=KIND_PEST,
-        description="Cualquier trips adulto o ninfa visible en la muestra.",
+        description="Trips (Frankliniella occidentalis), adulto o ninfa en la muestra.",
         prompts=(
-            "Animalia Arthropoda Insecta Thysanoptera Thripidae, "
+            "Animalia Arthropoda Insecta Thysanoptera Thripidae Frankliniella occidentalis, "
             "close-up photo of a slender thrips insect pest",
             "Tiny elongated thrips insect with feathery fringed wings and segmented antennae "
             "on a plant leaf, macro photography",
@@ -180,9 +180,9 @@ _register(
     DetectionTarget(
         key="trips_dano_fruto_gulupa",
         common_name="Daño de Trips en Fruto de Gulupa",
-        scientific_name=None,
+        scientific_name="Frankliniella occidentalis",
         kind=KIND_DAMAGE,
-        description="Roña o cacarizado corchoso causado por el raspado de ninfas.",
+        description="Roña o cacarizado corchoso en fruto de gulupa causado por Frankliniella occidentalis.",
         prompts=(
             "Close-up photo of purple passionfruit (gulupa, Passiflora edulis) young green fruit "
             "showing severe thrips feeding damage, corky surface scarring, scab, cacarizado or roña",
@@ -220,11 +220,13 @@ _register(
         common_name="Araña Roja",
         scientific_name="Tetranychus urticae",
         kind=KIND_PEST,
-        description="Ácaro tetraníquido productor de telarañas finas.",
+        description="Ácaro tetraníquido (Tetranychus urticae), araña roja común tejedora de seda.",
         prompts=(
             "Animalia Arthropoda Arachnida Trombidiformes Tetranychidae Tetranychus urticae, "
-            "two-spotted spider mite tiny red or greenish mite with webbing",
-            "Tiny red spider mites and fine silk webbing on the underside of a green leaf",
+            "two-spotted spider mite tiny red or greenish mite with webbing on foliage",
+            "Macro photo of red spider mites, Tetranychus urticae, tiny red mites with fine silk webbing on leaf",
+            "Cluster of tiny red spider mites on the underside of a leaf, arachnid pest, fine silk threads",
+            "A photograph of a spider or arachnid, Araneae, spider with eight long legs",
         ),
     ),
     DetectionTarget(
@@ -232,11 +234,12 @@ _register(
         common_name="Ácaro Plano",
         scientific_name="Brevipalpus",
         kind=KIND_PEST,
-        description="Ácaro plano de las pasifloras.",
+        description="Ácaro plano o falso ácaro rojo de las pasifloras (Brevipalpus spp.), cuerpo aplanado sin telaraña.",
         prompts=(
             "Animalia Arthropoda Arachnida Trombidiformes Tenuipalpidae Brevipalpus, "
-            "flat false spider mite on passionfruit vine",
-            "Minute flat reddish mite attached to a green leaf surface, macro photograph",
+            "flat false spider mite microscopic slow-moving flat mite, no silk webbing",
+            "Minute flat reddish-brown false spider mite Brevipalpus attached tightly to green leaf surface, high magnification microscopy",
+            "Tenuipalpidae flat mite Brevipalpus phoenicis on fruit or vine bark, tiny flat body without webs",
         ),
     ),
     DetectionTarget(
@@ -296,6 +299,33 @@ _register(
         prompts=(
             "Dried water drop, agricultural pesticide powder residue or soil dust dirt speck on leaf surface",
             "White dried spray residue or dust spots on a green leaf, not a plant disease",
+        ),
+    ),
+    DetectionTarget(
+        key="neg_arana_comun",
+        common_name="Araña común (Fauna benéfica / No es plaga)",
+        scientific_name="Araneae",
+        kind=KIND_HEALTHY,
+        description="Araña depredadora o fauna silvestre benéfica (orden Araneae). No es un ácaro plaga ni afecta el cultivo.",
+        prompts=(
+            "Animalia Arthropoda Arachnida Araneae, true spider, garden spider, jumping spider, orb-weaver spider, beneficial predator arachnid with long legs",
+            "A photograph of a spider or arachnid on foliage or web, Araneae, eight long legs and distinct cephalothorax, beneficial natural enemy",
+            "Macro photo of an ordinary jumping spider, salticid spider, or garden spider on a plant, beneficial garden fauna, not an agricultural pest",
+            "A small harmless spider resting on foliage, predatory arachnid",
+        ),
+    ),
+    DetectionTarget(
+        key="neg_no_agricola_sin_insecto",
+        common_name="Muestra no agrícola / Sin insectos",
+        scientific_name=None,
+        kind=KIND_OTHER,
+        description="La imagen no corresponde a una muestra vegetal de pasifloras ni contiene insectos plaga identificables.",
+        prompts=(
+            "A photograph of indoor furniture, desk, computer screen, keyboard, wall, floor, clothing, household objects, human hand, non-agricultural scene",
+            "Everyday indoor room background, office, electronics, furniture, or clothes without any plants, flowers, or bugs",
+            "A blank, blurry, out-of-focus surface or artificial material with no agricultural foliage and no insects",
+            "Random artificial object, plastic, metal, textile, paper, no pest insects present",
+            "Blurry background without any insects or plant tissues",
         ),
     ),
 )
@@ -522,7 +552,7 @@ _register(
         scientific_name="Tetranychus urticae",
         kind=KIND_PEST,
         description=(
-            "Ácaro tetraníquido que produce punteado clorótico y telaraña fina en el envés."
+            "Ácaro tetraníquido (Tetranychus urticae) que produce punteado clorótico y telaraña fina en el envés."
         ),
         prompts=(
             "Animalia Arthropoda Arachnida Trombidiformes Tetranychidae Tetranychus urticae, "
@@ -530,6 +560,7 @@ _register(
             "Macro photograph of red spider mites clustered on the underside of a passionfruit leaf, "
             "fine web threads and yellow stippling damage",
             "Tiny reddish eight-legged spider mites and eggs on a green leaf surface, high magnification",
+            "A photograph of a spider or arachnid on foliage, Araneae, eight-legged spider pest",
         ),
     ),
     DetectionTarget(
@@ -649,6 +680,8 @@ ARANAS_ROJAS_PROFILE = DetectionProfile(
         "neg_flor_sana_gulupa",
         "neg_zarcillo_tallo",
         "neg_mancha_polvo_caldo",
+        "neg_arana_comun",
+        "neg_no_agricola_sin_insecto",
     ),
     positive_target_keys=("arana_roja_tetranychus",),
     stages=ARANAS_ROJAS_STAGES,
@@ -679,11 +712,13 @@ AUTO_TARGET_KEYS: Tuple[str, ...] = (
     "neg_pulgon",
     "neg_acaro_plano",
     "neg_mosca_minadora",
-    # Tejido vegetal sano / otros
+    # Tejido vegetal sano / fauna benéfica / no agrícola
     "neg_hoja_sana_gulupa",
     "neg_flor_sana_gulupa",
     "neg_zarcillo_tallo",
     "neg_mancha_polvo_caldo",
+    "neg_arana_comun",
+    "neg_no_agricola_sin_insecto",
 )
 
 AUTO_POSITIVE_TARGET_KEYS: Tuple[str, ...] = (
@@ -696,7 +731,6 @@ AUTO_POSITIVE_TARGET_KEYS: Tuple[str, ...] = (
     "arana_roja_tetranychus",
     "neg_mosca_blanca",
     "neg_pulgon",
-    "neg_acaro_plano",
     "neg_mosca_minadora",
 )
 

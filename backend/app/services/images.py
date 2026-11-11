@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Tuple
 
 from fastapi import HTTPException, UploadFile, status
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageOps, ImageStat, UnidentifiedImageError
 
 from backend.app.config import MAX_UPLOAD_BYTES
 
@@ -72,3 +72,41 @@ async def read_image_upload(
         ) from exc
 
     return contents, image
+
+
+def check_image_quality(image: Image.Image) -> Tuple[bool, str]:
+    """Verifica si la imagen tiene información visual mínima útil.
+
+    Detecta fotos totalmente oscuras (tapa puesta, noche sin flash, dedo tapando lente),
+    sobreexpuestas (completamente blancas) o sin contraste/textura (plana o desenfocada).
+    """
+
+    try:
+        stat = ImageStat.Stat(image)
+        channels = stat.mean[:3]
+        if not channels:
+            return False, "La imagen no contiene canales de color válidos."
+
+        mean_brightness = sum(channels) / len(channels)
+        total_var = sum(stat.var[:3])
+
+        if mean_brightness < 18.0:
+            return (
+                False,
+                "La imagen es demasiado oscura o carece de iluminación para identificar plagas.",
+            )
+        if mean_brightness > 245.0 and total_var < 50.0:
+            return (
+                False,
+                "La imagen está sobreexpuesta o completamente en blanco.",
+            )
+        if total_var < 35.0:
+            return (
+                False,
+                "La imagen carece de textura, nitidez o contraste reconocible.",
+            )
+
+        return True, ""
+    except Exception:
+        # En caso de error inesperado de cálculo, no bloquear el flujo de inferencia.
+        return True, ""
