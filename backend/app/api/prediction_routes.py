@@ -13,7 +13,7 @@ from backend.app.config import (
     MODEL_RETRY_AFTER_SECONDS,
 )
 from backend.app.domain.catalog import get_profile
-from backend.app.ml.bioclip_engine import ModelWarmingUp, bioclip_engine
+from backend.app.ml.bioclip_engine import bioclip_engine
 from backend.app.schemas import PredictionResponse
 from backend.app.services.images import read_image_upload
 
@@ -70,18 +70,6 @@ async def predict(
             profile_key=selected_profile.key,
             use_tta=use_tta,
             crop=crop or selected_profile.crop,
-        )
-    except ModelWarmingUp as exc:
-        retry_after = exc.retry_after_seconds or MODEL_RETRY_AFTER_SECONDS
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={
-                "detail": str(exc),
-                "status": "warming",
-                "model_loaded": False,
-                "retry_after_seconds": retry_after,
-            },
-            headers={"Retry-After": str(retry_after)},
         )
     except HTTPException:
         raise

@@ -374,11 +374,7 @@ class BioCLIPEngine:
 
         started_at = time.perf_counter()
         if not self.is_loaded:
-            # Nunca bloquear la petición esperando todo el cold start:
-            # si el modelo no está listo en MODEL_WAIT_SECONDS, se lanza
-            # ModelWarmingUp y la API responde 503 para que el cliente reintente.
-            if not self.wait_until_loaded(timeout=MODEL_WAIT_SECONDS):
-                raise ModelWarmingUp()
+            self.load_model()
         if self.prompt_bank is None:
             raise RuntimeError("El banco de prompts no está inicializado.")
 
