@@ -6,6 +6,17 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 
 ## [Sin publicar] — 2026-11-10
 
+### ⚡ Rendimiento y anti-cuelgue en Cloud Run (fix 500/503)
+- **`POST /api/predict` ya no se cuelga en el cold start**: si el modelo sigue cargando, espera `MODEL_WAIT_SECONDS` (2.5 s por defecto, configurable) y responde **503** con `{"status": "warming", "retry_after_seconds": N}` y cabecera `Retry-After` para que el cliente reintente en segundos. Antes, la petición quedaba bloqueada en el lock de carga durante 1-4 minutos y terminaba en 500/504 del proxy o del balanceador de Cloud Run.
+- **Nuevo `POST /api/warmup`**: dispara la carga del modelo en segundo plano sin bloquear. La web de Macollo lo invoca al abrir el escáner para que la primera foto encuentre el modelo listo (~1-2 s de inferencia).
+- **Prototipos de texto precalculados y horneados en la imagen Docker**: `PromptBank` ahora persiste los embeddings del catálogo en `data/prompt_embeddings.pt` con una firma (modelo + prompts). En cada arranque en frío se cargan del disco en milisegundos en lugar de re-codificar ~100 prompts con el codificador de texto en CPU (medición local: 36.2 s → 17.3 s por instancia; el ahorro crece con menos vCPU). Si cambia el catálogo, la firma no coincide y se recalcula automáticamente.
+- **Hilos de PyTorch alineados con la cuota de CPU real del contenedor**: Cloud Run limita por cuota CFS y `os.cpu_count()` devuelve los núcleos de la máquina anfitriona, causando sobre-suscripción de hilos e inferencia varias veces más lenta. El motor detecta la cuota (`/sys/fs/cgroup/cpu.max`, cgroup v1 como fallback) y ajusta `torch.set_num_threads` (forzable con `TORCH_NUM_THREADS`).
+- **`ensure_load_started()` idempotente** en el lifespan de FastAPI: sustituye al hilo crudo y expone el estado (`wait_until_loaded`, `warmup`) con manejo de errores de carga (las peticiones reciben 500 explicativo en vez de quedarse colgadas para siempre).
+- **`/api/health`** reporta ahora `model_warming`.
+- **`Dockerfile`**: hornear también `data/prompt_embeddings.pt` y el índice de galería en la imagen (etapa de build), verificando que la precomputación fue exitosa.
+- **Panel React (`ScoutView.jsx`)**: reintenta automáticamente los 503 `warming` respetando `Retry-After`.
+- **Documentación**: banderas recomendadas de Cloud Run (`--concurrency 4`, `--timeout 120`, `--cpu-boost`, `--min-instances`), endpoint `/api/warmup` y contrato del 503 warming en `DEPLOYMENT` y `ENDPOINTS`.
+
 ### 📚 Documentación
 - **Guía de Cloudflare Tunnel** (`docs/CLOUDFLARE-TUNNEL.md`): publicación temporal por HTTPS sin abrir puertos, túnel rápido, dominio fijo, CORS, API keys y consumo desde una página externa.
 - **Documentación alineada con la API 2.x**: títulos del servicio, respuesta real de `/api/health`, contrato `profile`/`crop`/`detection`, galería por `label`, 23 pruebas y los tres perfiles (`trips`, `moscas`, `aranas_rojas`) en `AUTH`, `DEPLOYMENT`, `ENDPOINTS`, `DATA-DICTIONARY`, `ARCHITECTURE`, `SEQUENCE_DIAGRAMS`, `USER_MANUAL`, `TROUBLESHOOTING`, `CONTRIBUTING`, `TESTING`, `EXTENDING`, `AGRONOMY-MIP`, `README` y `CAMERA_ML_MODULE`.

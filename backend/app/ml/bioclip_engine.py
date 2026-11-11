@@ -5,8 +5,17 @@ El motor es genérico respecto al catálogo: recibe un ``profile`` (trips, mosca
 aranas_rojas...) y clasifica sus objetivos y estadios. Incluye ensamble de
 prompts, calibración por margen, votación suave de la galería y test-time
 augmentation opcional.
+
+Rendimiento en Cloud Run (CPU):
+- Los prototipos de texto se precargan desde caché en disco (ver PromptBank).
+- ``/api/predict`` nunca se cuelga esperando el cold start: espera
+  ``MODEL_WAIT_SECONDS`` y responde 503 ``warming`` para que el cliente
+  reintente en segundos (excepción ``ModelWarmingUp``).
+- Los hilos de PyTorch se ajustan a la cuota real de CPU del contenedor
+  (cgroup), no al número de núcleos de la máquina anfitriona.
 """
 
+import os
 import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -25,6 +34,9 @@ from backend.app.config import (
     GALLERY_MAX_BOOST,
     GALLERY_MIN_SIMILARITY,
     KNN_TOP_K,
+    MODEL_RETRY_AFTER_SECONDS,
+    MODEL_WAIT_SECONDS,
+    TORCH_NUM_THREADS,
 )
 from backend.app.domain.catalog import (
     DEFAULT_PROFILE_KEY,
@@ -35,6 +47,55 @@ from backend.app.domain.catalog import (
 )
 from backend.app.ml.gallery_index import gallery_manager
 from backend.app.ml.prompt_bank import PromptBank
+
+
+class ModelWarmingUp(RuntimeError):
+    """El modelo aún se está cargando (cold start); el cliente debe reintentar."""
+
+    def __init__(self, retry_after_seconds: int = MODEL_RETRY_AFTER_SECONDS):
+        self.retry_after_seconds = max(2, int(retry_after_seconds))
+        super().__init__(
+            "El modelo BioCLIP se está cargando en el servidor (arranque en frío). "
+            f"Reintenta en ~{self.retry_after_seconds} segundos."
+        )
+
+
+def _effective_cpu_count() -> int:
+    """Número de CPUs usables por el contenedor.
+
+    En Cloud Run (y la mayoría de orquestadores) el límite de CPU es una cuota
+    CFS: ``os.cpu_count()`` devuelve los núcleos de la MÁQUINA anfitriona
+    (decenas o cientos), lo que lleva a PyTorch a crear demasiados hilos y a
+    una inferencia varios veces más lenta por sobre-suscripción.
+    """
+
+    try:
+        # cgroup v2: "/sys/fs/cgroup/cpu.max" -> "max 100000" | "600000 100000"
+        with open("/sys/fs/cgroup/cpu.max", "r", encoding="utf-8") as handle:
+            quota_str, period_str = handle.read().strip().split()
+            if quota_str != "max":
+                quota = float(quota_str)
+                period = float(period_str)
+                if quota > 0 and period > 0:
+                    return max(1, int(quota // period))
+    except (OSError, ValueError):
+        pass
+
+    try:
+        # cgroup v1: cuota y período por separado.
+        with open("/sys/fs/cgroup/cpu/cpu.cfs_quota_us", "r", encoding="utf-8") as handle:
+            quota = float(handle.read().strip())
+        with open("/sys/fs/cgroup/cpu/cpu.cfs_period_us", "r", encoding="utf-8") as handle:
+            period = float(handle.read().strip())
+        if quota > 0 and period > 0:
+            return max(1, int(quota // period))
+    except (OSError, ValueError):
+        pass
+
+    try:
+        return max(1, len(os.sched_getaffinity(0)))
+    except AttributeError:
+        return max(1, os.cpu_count() or 1)
 
 
 class BioCLIPEngine:
@@ -49,6 +110,12 @@ class BioCLIPEngine:
         self.loaded_model_name = ""
         self._load_lock = threading.Lock()
         self._inference_lock = threading.Lock()
+        # Estado del arranque en frío: el evento se dispara cuando termina la
+        # carga (con o sin error) para que las peticiones nunca se cuelguen.
+        self._load_started = False
+        self._loaded_event = threading.Event()
+        self._start_lock = threading.Lock()
+        self._load_error: Optional[BaseException] = None
 
     @staticmethod
     def _detect_device() -> torch.device:
@@ -62,6 +129,23 @@ class BioCLIPEngine:
     # ------------------------------------------------------------------
     # Carga del modelo
     # ------------------------------------------------------------------
+    def _configure_threads(self) -> None:
+        """Ajusta los hilos de inferencia de PyTorch a la CPU disponible."""
+
+        threads = TORCH_NUM_THREADS or _effective_cpu_count()
+        # Evita que un valor absurdo reviente máquinas pequeñas.
+        threads = max(1, min(threads, 32))
+        torch.set_num_threads(threads)
+        try:
+            torch.set_num_interop_threads(1)
+        except RuntimeError:
+            # Ya fue inicializado por otro hilo; no es crítico.
+            pass
+        print(
+            f"[BioCLIPEngine] PyTorch usando {threads} hilo(s) de inferencia "
+            f"en dispositivo {self.device}."
+        )
+
     def load_model(self) -> None:
         """Carga BioCLIP 2.5 y precalcula los prototipos de texto del catálogo."""
 
@@ -69,9 +153,10 @@ class BioCLIPEngine:
             if self.is_loaded:
                 return
 
+            self._load_error = None
+            self._loaded_event.clear()
             print(f"[BioCLIPEngine] Inicializando en dispositivo: {self.device}")
-            if self.device.type == "cpu":
-                torch.set_num_threads(min(8, torch.get_num_threads()))
+            self._configure_threads()
 
             model_name = BIOCLIP_MODEL_NAME
             try:
@@ -95,7 +180,17 @@ class BioCLIPEngine:
 
             self.model.eval()
             self.prompt_bank = PromptBank(self.model, self.tokenizer, self.device)
-            self._precompute_text_embeddings()
+
+            try:
+                if self.prompt_bank.load_cache(self.loaded_model_name):
+                    pass  # Prototipos cargados del disco: cold start mínimo.
+                else:
+                    self._precompute_text_embeddings()
+                    self.prompt_bank.save_cache(self.loaded_model_name)
+            except Exception as exc:
+                # La caché nunca debe tumbar el arranque: se recalcula en vivo.
+                print(f"[BioCLIPEngine] Fallo con la caché de prompts ({exc}); recalculando...")
+                self._precompute_text_embeddings()
 
             stats = gallery_manager.get_gallery_stats()
             if stats["total_images"] > 0 and not stats["is_indexed"]:
@@ -105,7 +200,66 @@ class BioCLIPEngine:
                 )
 
             self.is_loaded = True
+            self._loaded_event.set()
             print(f"[BioCLIPEngine] Modelo {self.loaded_model_name} listo.")
+
+    def ensure_load_started(self) -> None:
+        """Garantiza que la carga del modelo esté en marcha (idempotente)."""
+
+        with self._start_lock:
+            if self.is_loaded or self._load_started:
+                return
+            self._load_started = True
+            threading.Thread(
+                target=self._load_in_background, daemon=True, name="bioclip-loader"
+            ).start()
+
+    def _load_in_background(self) -> None:
+        try:
+            self.load_model()
+        except BaseException as exc:  # noqa: BLE001 - se registra y se expone al cliente
+            print(f"[BioCLIPEngine] Error cargando el modelo: {exc}")
+            self._load_error = exc
+            # Despertar a las peticiones en espera para que reciban el error
+            # en lugar de quedarse colgadas, y permitir reintentos de carga.
+            self._loaded_event.set()
+            with self._start_lock:
+                self._load_started = False
+
+    def wait_until_loaded(self, timeout: Optional[float] = None) -> bool:
+        """Espera a que el modelo esté listo sin colgarse indefinidamente.
+
+        Devuelve ``True`` si está listo. Lanza ``RuntimeError`` si la carga
+        falló definitivamente. Devuelve ``False`` si se agotó el tiempo
+        (cold start en progreso): el llamador debe responder 503 ``warming``.
+        """
+
+        self.ensure_load_started()
+        if self.is_loaded:
+            return True
+
+        wait_seconds = MODEL_WAIT_SECONDS if timeout is None else float(timeout)
+        self._loaded_event.wait(wait_seconds)
+
+        if self.is_loaded:
+            return True
+        if self._load_error is not None:
+            raise RuntimeError(
+                f"La carga del modelo BioCLIP falló: {self._load_error}"
+            ) from self._load_error
+        return False
+
+    def warmup(self) -> Dict[str, Any]:
+        """Dispara la carga del modelo sin bloquear y reporta el estado actual."""
+
+        self.ensure_load_started()
+        return {
+            "status": "ready" if self.is_loaded else "loading",
+            "model_loaded": self.is_loaded,
+            "model_name": self.loaded_model_name,
+            "device": str(self.device),
+            "load_failed": self._load_error is not None,
+        }
 
     def _precompute_text_embeddings(self) -> None:
         """Precalcula y valida los prototipos de texto de todos los perfiles."""
@@ -220,7 +374,11 @@ class BioCLIPEngine:
 
         started_at = time.perf_counter()
         if not self.is_loaded:
-            self.load_model()
+            # Nunca bloquear la petición esperando todo el cold start:
+            # si el modelo no está listo en MODEL_WAIT_SECONDS, se lanza
+            # ModelWarmingUp y la API responde 503 para que el cliente reintente.
+            if not self.wait_until_loaded(timeout=MODEL_WAIT_SECONDS):
+                raise ModelWarmingUp()
         if self.prompt_bank is None:
             raise RuntimeError("El banco de prompts no está inicializado.")
 

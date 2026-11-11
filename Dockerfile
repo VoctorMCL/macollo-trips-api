@@ -53,6 +53,14 @@ RUN python -c "import open_clip; open_clip.create_model_and_transforms('hf-hub:i
 COPY backend/ ./backend/
 COPY data/ ./data/
 
+# Hornear en la imagen los prototipos de texto de todos los perfiles del catálogo
+# y el índice de la galería de referencia. En runtime load_model() los carga del
+# disco en milisegundos (ver PromptBank.load_cache) en lugar de re-codificar
+# ~100 prompts con el codificador de texto en CPU, lo que ahorra decenas de
+# segundos en cada arranque en frío de Cloud Run.
+RUN python -c "from backend.app.ml.bioclip_engine import bioclip_engine; bioclip_engine.load_model()" \
+    && python -c "from backend.app.ml.bioclip_engine import bioclip_engine; assert bioclip_engine.is_loaded, 'La precomputación de cachés falló'"
+
 # Copiar los archivos estáticos compilados de la interfaz React desde la primera etapa
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 

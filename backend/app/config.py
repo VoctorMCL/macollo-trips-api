@@ -10,6 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / "data"
 GALLERY_DIR = DATA_DIR / "reference_gallery"
 GALLERY_INDEX_PATH = DATA_DIR / "gallery_embeddings.pt"
+PROMPT_CACHE_PATH = DATA_DIR / "prompt_embeddings.pt"
 API_KEYS_PATH = DATA_DIR / "api_keys.json"
 AUTH_SECRET_PATH = DATA_DIR / ".auth_secret"
 DIST_DIR = BASE_DIR / "frontend" / "dist"
@@ -39,6 +40,18 @@ KNN_TOP_K: int = int(os.getenv("KNN_TOP_K", "5"))
 GALLERY_MIN_SIMILARITY: float = float(os.getenv("GALLERY_MIN_SIMILARITY", "0.62"))
 GALLERY_MAX_BOOST: float = float(os.getenv("GALLERY_MAX_BOOST", "0.15"))
 ENABLE_TTA: bool = os.getenv("ENABLE_TTA", "false").lower() == "true"
+
+# ML: rendimiento y cold start en Cloud Run.
+# TORCH_NUM_THREADS = 0 -> autodetectar la cuota real de CPU del contenedor (cgroup),
+# evitando que PyTorch lance tantos hilos como núcleos tiene la máquina anfitriona
+# (Cloud Run limita por cuota CFS, no por máscara de afinidad, y la sobre-suscripción
+# de hilos hace la inferencia varios veces más lenta).
+TORCH_NUM_THREADS: int = int(os.getenv("TORCH_NUM_THREADS", "0"))
+# Cuánto espera /api/predict a que el modelo termine de cargar antes de responder
+# 503 "warming" (el cliente reintenta) en lugar de colgarse minutos en el cold start.
+MODEL_WAIT_SECONDS: float = float(os.getenv("MODEL_WAIT_SECONDS", "2.5"))
+# Segundos sugeridos al cliente para reintentar cuando el modelo está calentando.
+MODEL_RETRY_AFTER_SECONDS: int = int(os.getenv("MODEL_RETRY_AFTER_SECONDS", "5"))
 
 # Límites de subida (bytes). 15 MB por defecto.
 MAX_UPLOAD_BYTES: int = int(os.getenv("MAX_UPLOAD_BYTES", str(15 * 1024 * 1024)))

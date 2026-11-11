@@ -17,11 +17,13 @@ async def health_check():
     """Verifica el estado del servicio, modelo cargado, catálogo y galería."""
 
     stats = gallery_manager.get_gallery_stats()
+    model_loaded = bioclip_engine.is_loaded
     return {
         "status": "healthy",
         "app_name": settings.app_name,
         "version": settings.version,
-        "model_loaded": bioclip_engine.is_loaded,
+        "model_loaded": model_loaded,
+        "model_warming": not model_loaded,
         "model_name": bioclip_engine.loaded_model_name,
         "device": str(bioclip_engine.device),
         "default_profile": DEFAULT_PROFILE or DEFAULT_PROFILE_KEY,

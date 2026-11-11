@@ -3,12 +3,17 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from backend.app.auth import require_api_access
-from backend.app.config import DEFAULT_PROFILE, DEFAULT_TEMPERATURE_C
+from backend.app.config import (
+    DEFAULT_PROFILE,
+    DEFAULT_TEMPERATURE_C,
+    MODEL_RETRY_AFTER_SECONDS,
+)
 from backend.app.domain.catalog import get_profile
-from backend.app.ml.bioclip_engine import bioclip_engine
+from backend.app.ml.bioclip_engine import ModelWarmingUp, bioclip_engine
 from backend.app.schemas import PredictionResponse
 from backend.app.services.images import read_image_upload
 
@@ -41,6 +46,11 @@ async def predict(
     - Estima días de ciclo/presión según temperatura.
     - Emite recomendaciones de manejo integrado.
     - Compara con la galería de referencia del predio (few-shot).
+
+    Si el modelo todavía se está cargando (cold start de Cloud Run), responde
+    **503** con ``{"status": "warming", "retry_after_seconds": N}`` y la
+    cabecera ``Retry-After`` para que el cliente reintente en segundos en
+    lugar de quedarse esperando minutos colgado.
     """
 
     try:
@@ -61,6 +71,18 @@ async def predict(
             use_tta=use_tta,
             crop=crop or selected_profile.crop,
         )
+    except ModelWarmingUp as exc:
+        retry_after = exc.retry_after_seconds or MODEL_RETRY_AFTER_SECONDS
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "detail": str(exc),
+                "status": "warming",
+                "model_loaded": False,
+                "retry_after_seconds": retry_after,
+            },
+            headers={"Retry-After": str(retry_after)},
+        )
     except HTTPException:
         raise
     except Exception as exc:
@@ -70,3 +92,23 @@ async def predict(
         ) from exc
 
     return result
+
+
+@router.post("/warmup")
+async def warmup(_access: dict = Depends(require_api_access)):
+    """Dispara la carga del modelo sin bloquear y reporta su estado.
+
+    Diseñado para que las apps cliente "precalienten" el servicio en Cloud Run
+    (por ejemplo, al abrir el escáner) y la primera foto ya encuentre el modelo
+    listo. Es idempotente y responde de inmediato.
+    """
+
+    state = bioclip_engine.warmup()
+    return {
+        **state,
+        "message": (
+            "El modelo está listo para inferir."
+            if state["model_loaded"]
+            else "El modelo se está cargando en segundo plano; consulta /api/health."
+        ),
+    }

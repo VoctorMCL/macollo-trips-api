@@ -9,6 +9,7 @@ Esta guía documenta la totalidad de los endpoints expuestos por la API REST de 
 | Categoría | Método | Ruta | Autenticación | Descripción |
 | :--- | :--- | :--- | :--- | :--- |
 | **Diagnóstico** | `POST` | `/api/predict` | `X-API-Key` o Sesión | Inferencia BioCLIP 2.5 para cualquier perfil, estadio, ciclo térmico y MIP. |
+| **Diagnóstico** | `POST` | `/api/warmup` | `X-API-Key` o Sesión | Precalienta el modelo (cold start) sin bloquear; para apps cliente. |
 | **Diagnóstico** | `GET` | `/api/handbook` | `X-API-Key` o Sesión | Ficha genérica y recomendaciones de ejemplo para un perfil. |
 | **Diagnóstico** | `GET` | `/api/gulupa-handbook` | `X-API-Key` o Sesión | Ficha histórica de trips y ciclo fenológico a temperatura dada. |
 | **Catálogo** | `GET` | `/api/catalog` | Pública | Catálogo completo de perfiles, objetivos y estadios. |
@@ -147,7 +148,35 @@ curl -X POST "http://localhost:8000/api/predict" \
 #### Códigos de Error Posibles
 - `400 Bad Request`: El archivo no es una imagen válida o está dañado.
 - `401 Unauthorized`: No se envió `X-API-Key` o la clave está revocada/inactiva.
+- `503 Service Unavailable`: El modelo aún se está cargando (cold start). Cuerpo `{"status": "warming", "retry_after_seconds": N}` y cabecera `Retry-After: N`. **Reintentar en N segundos** — la inferencia en sí toma ~1-2 s una vez listo.
 - `500 Internal Server Error`: Fallo interno durante la inferencia en PyTorch.
+
+### 1.2 Precalentar el Modelo (Warm-Up)
+`POST /api/warmup`
+
+Dispara la carga del modelo BioCLIP en segundo plano y responde de inmediato sin bloquear. Diseñado para que las apps cliente precalienten el servicio de Cloud Run (que escala a 0 en reposo) antes de que el usuario tome la foto. Es idempotente: llamarlo con el modelo ya listo no tiene costo.
+
+#### Encabezados Requeridos
+Igual que `/api/predict` (`X-API-Key` o cookie de sesión del panel).
+
+#### Ejemplo con `curl`
+```bash
+curl -X POST "http://localhost:8000/api/warmup" -H "X-API-Key: mk_tu_clave"
+```
+
+#### Ejemplo de Respuesta (`200 OK`)
+```json
+{
+  "status": "loading",
+  "model_loaded": false,
+  "model_name": "",
+  "device": "cpu",
+  "load_failed": false,
+  "message": "El modelo se está cargando en segundo plano; consulta /api/health."
+}
+```
+
+Cuando el modelo ya está listo, `status` es `"ready"` y `model_loaded` es `true`.
 
 ---
 

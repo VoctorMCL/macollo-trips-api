@@ -224,14 +224,50 @@ El modelo **BioCLIP 2.5 (`imageomics/bioclip-2.5-vith14`)** tiene 632 millones d
 | **Facturación** | *Basada en solicitudes* | Solo factura segundos activos de uso. En inactividad escala a 0 ($0.00 COP). |
 | **Instancias mínimas** | `0` (ahorro) o `1` (baja latencia) | `0` para costo cero en reposo; `1` si se requiere respuesta instantánea sin cold start. |
 | **Instancias máximas** | `2` o `3` | Protección estricta contra picos imprevistos de costos. |
-| **Timeout de solicitud** | `300 segundos` | Margen suficiente para inferencia y arranque en frío. |
+| **Timeout de solicitud** | `120 segundos` | La API responde 503 "warming" en segundos; el margen cubre el arranque en frío. |
 | **Aumento de CPU en inicio** | Habilitado (*CPU Boost*) | Acelera el arranque de la revisión. |
+| **Concurrencia por instancia** | `4` (recomendado) | La inferencia serializa por un lock interno; más conexiones solo encolan peticiones. |
+
+> [!IMPORTANT]
+> **Comportamiento anti-cuelgue (cold start):** si el modelo todavía se está cargando cuando llega un `POST /api/predict`, la API espera hasta `MODEL_WAIT_SECONDS` (2.5 s por defecto) y responde **503** con cuerpo `{"status": "warming", "retry_after_seconds": N}` y cabecera `Retry-After`, en lugar de dejar la petición colgada minutos (que antes terminaba en 500/504 del proxy o del balanceador). El cliente (web de Macollo o panel React) reintenta automáticamente hasta que el modelo está listo.
+>
+> **Warm-up explícito:** `POST /api/warmup` (misma autenticación que `/api/predict`) dispara la carga del modelo en segundo plano y responde de inmediato con `{"model_loaded": false, "status": "loading"}`. La web de Macollo lo invoca automáticamente al abrir el escáner: para cuando el usuario encuadra y captura la foto, el modelo ya está listo y la inferencia toma ~1-2 s.
+
+Ejemplo de despliegue con todas las banderas recomendadas:
+
+```bash
+gcloud run deploy macollo-trips-api \
+  --source . \
+  --region us-central1 \
+  --memory 16Gi \
+  --cpu 6 \
+  --concurrency 4 \
+  --timeout 120 \
+  --min-instances 0 \
+  --max-instances 3 \
+  --cpu-boost \
+  --allow-unauthenticated
+```
+
+> [!TIP]
+> Para **latencia instantánea 24/7** (sin cold start alguno) usa `--min-instances 1`. Ten en cuenta que una instancia mínima permanente de 6 vCPU / 16 GiB factura continuamente; con `--min-instances 0` el sistema de warm-up + reintentos mantiene la primera foto del día en el rango de 30–60 s y todas las demás en ~1-3 s.
 
 ### 7.2. Características del Dockerfile para Cloud Run
 1. **Multi-stage build**: La primera etapa compila la web React con Node.js 20; la segunda empaqueta FastAPI y Python 3.11.
 2. **Precarga de BioCLIP 2.5**: La imagen descarga y hornea los 2.5 GB de pesos en `/root/.cache/huggingface` durante la compilación en Cloud Build.
-3. **Inicio asíncrono**: `bioclip_engine.load_model()` arranca en un hilo en segundo plano (`daemon=True`) para que Uvicorn abra el puerto 8080 en menos de 1 segundo y apruebe de inmediato el *startup probe* de Cloud Run.
-4. **Auto-resizing de fotos**: En `backend/app/services/images.py`, las fotos capturadas con cámaras de alta resolución (12MP a 48MP) se reducen a un máximo de 1280px para prevenir saturación de memoria.
+3. **Prototipos de texto y galería precalculados**: El build ejecuta `bioclip_engine.load_model()` y guarda `data/prompt_embeddings.pt` y el índice de galería dentro de la imagen. En cada arranque en frío se cargan del disco en milisegundos en lugar de re-codificar ~100 prompts con el codificador de texto en CPU (decenas de segundos ahorradas por instancia). Si el catálogo de prompts cambia, la firma interna ya no coincide y se recalcula automáticamente.
+4. **Inicio asíncrono**: `bioclip_engine.ensure_load_started()` arranca la carga en un hilo en segundo plano (`daemon=True`) para que Uvicorn abra el puerto 8080 en menos de 1 segundo y apruebe de inmediato el *startup probe* de Cloud Run.
+5. **Hilos de PyTorch alineados con la cuota de CPU**: en Cloud Run el límite de CPU es una cuota CFS del cgroup; `os.cpu_count()` reporta los núcleos de la máquina anfitriona y PyTorch creaba demasiados hilos (sobre-suscripción = inferencia varias veces más lenta). Ahora el motor detecta la cuota real (`/sys/fs/cgroup/cpu.max`) y ajusta `torch.set_num_threads`. Se puede forzar con `TORCH_NUM_THREADS`.
+6. **Auto-resizing de fotos**: En `backend/app/services/images.py`, las fotos capturadas con cámaras de alta resolución (12MP a 48MP) se reducen a un máximo de 1280px para prevenir saturación de memoria.
+
+### 7.4. Integración desde la web (Vercel)
+
+El proxy `/api/trips-diagnosis` de la web Macollo (Astro en Vercel) ahora:
+1. Declara `export const maxDuration = 60` para que la función serverless no muera con 500/503 mientras Cloud Run despierta (requiere Fluid Compute: activo por defecto en Vercel).
+2. Reintenta automáticamente los 503 `warming` respetando `Retry-After` durante ~50 s dentro de su presupuesto.
+3. Al abrir el escáner, el health check (`GET /api/trips-diagnosis`) dispara el warm-up del modelo en Cloud Run, de modo que la primera foto suele encontrar el modelo ya listo.
+
+Variables de entorno de la web: `ML_API_URL` (URL de Cloud Run), `ML_API_KEY`, `ML_ADMIN_USER` y `ML_ADMIN_PASSWORD` (para re-autenticación por sesión si la API key es efímera).
 
 ### 7.3. Asignación de Dominio Propio con Cloudflare
 Para usar tu propio dominio (ej. `macollo.victormcl.me`):

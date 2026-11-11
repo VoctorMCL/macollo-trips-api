@@ -105,30 +105,58 @@ export default function ScoutView({
     formData.append("profile", "auto");
     formData.append("crop", "gulupa");
 
-    try {
-      const res = await fetch("/api/predict", {
-        method: "POST",
-        body: formData
-      });
+    // El modelo puede estar cargando (cold start): la API responde 503
+    // {"status":"warming"} con Retry-After y se reintenta automáticamente.
+    const MAX_ATTEMPTS = 10;
 
-      if (res.status === 401) {
-        onUnauthorized();
+    try {
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        showLoading(
+          attempt === 1
+            ? "Clasificando muestra con BioCLIP 2.5..."
+            : `Calentando modelo BioCLIP 2.5 (intento ${attempt})...`
+        );
+
+        const res = await fetch("/api/predict", {
+          method: "POST",
+          body: formData
+        });
+
+        if (res.status === 401) {
+          onUnauthorized();
+          return;
+        }
+
+        if (res.status === 503) {
+          let warmupInfo = null;
+          try {
+            warmupInfo = await res.json();
+          } catch (e) {
+            /* respuesta sin JSON */
+          }
+          if (warmupInfo?.status === "warming" && attempt < MAX_ATTEMPTS) {
+            const retryAfter = (warmupInfo.retry_after_seconds || 5) * 1000;
+            await new Promise((r) => setTimeout(r, Math.min(retryAfter, 10000)));
+            continue;
+          }
+        }
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Error en servidor (${res.status}): ${errText}`);
+        }
+
+        const data = await res.json();
+        setDiagnosis(data);
+
+        setTimeout(() => {
+          if (cardRef.current) {
+            cardRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }, 100);
         return;
       }
-
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Error en servidor (${res.status}): ${errText}`);
-      }
-
-      const data = await res.json();
-      setDiagnosis(data);
-
-      setTimeout(() => {
-        if (cardRef.current) {
-          cardRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 100);
+      throw new Error("El modelo no estuvo disponible a tiempo. Reintenta en unos segundos.");
     } catch (err) {
       alert("No se pudo procesar la muestra: " + err.message);
     } finally {
